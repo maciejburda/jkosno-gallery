@@ -1,9 +1,4 @@
-/_build
-/cover
-/deps
-/doc
-/.fetch
-erl_crash.dump
-*.ez
-*.beam
-/config/*.secret.exs
+# Original photos and source catalog — not needed by the website
+# (the site uses resized copies in assets/img/)
+Kosno - Obrazy/
+.DS_Store

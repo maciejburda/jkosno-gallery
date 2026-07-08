@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Jan Kosno (1913–1996) — Galeria 3D</title>
+<style>
+:root{
+  --bg:#15110e; --panel:#221b16; --line:rgba(231,214,189,.16);
+  --ink:#f4ecdf; --muted:#b3a394; --amber:#e0a050;
+  --tierAp:#e0a050; --tierA:#c58fa6; --tierB:#94a47e; --tierC:#8a93a0; --tierD:#7a6f64;
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  overscroll-behavior:none}
+#scene{position:fixed;inset:0;display:block;touch-action:none}
+
+/* ---------- intro / instructions ---------- */
+#intro{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 90% at 50% 0%, #241c15, #15110e 70%);cursor:pointer;
+  transition:opacity .6s;text-align:center;padding:20px;overflow-y:auto}
+#intro.hidden{opacity:0;pointer-events:none}
+.ibox{max-width:880px;width:100%;margin:auto;display:flex;flex-direction:column;align-items:center;
+  padding:calc(10px + env(safe-area-inset-top)) 0 calc(10px + env(safe-area-inset-bottom))}
+#intro .kicker{font-family:var(--sans);font-size:12px;letter-spacing:.35em;text-transform:uppercase;color:var(--muted)}
+#intro h1{font-family:var(--serif);font-weight:500;font-size:clamp(34px,6vw,62px);margin:12px 0 4px;letter-spacing:.02em}
+#intro .sub{color:var(--muted);font-size:14.5px}
+#intro .howto{margin:30px 0 4px;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:#8c7d70}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0 6px;width:100%}
+.cards.only-touch{grid-template-columns:repeat(3,1fr)}
+.icard{border:1px solid var(--line);border-radius:14px;padding:18px 14px 15px;background:rgba(34,27,22,.55);text-align:center}
+.icard .ic{height:40px;display:flex;align-items:center;justify-content:center;color:var(--amber)}
+.icard h4{margin:12px 0 6px;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);font-weight:600}
+.icard p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.65}
+.icard b{color:var(--ink);font-weight:600;border:1px solid var(--line);border-radius:5px;padding:0 6px;margin:0 1px;font-size:11.5px;white-space:nowrap}
+#intro .enter{font-size:16px;font-weight:600;border:0;border-radius:999px;padding:15px 44px;cursor:pointer;
+  color:#241a0a;background:linear-gradient(140deg,#eabb74,var(--amber));margin-top:24px;font-family:var(--sans);
+  box-shadow:0 10px 30px rgba(224,160,80,.3);transition:transform .15s, box-shadow .25s}
+#intro .enter:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(224,160,80,.45)}
+@media (hover:hover){ .only-touch{display:none} }
+@media (hover:none){ .only-desktop{display:none} }
+@media (max-width:760px){
+  .cards{grid-template-columns:1fr 1fr}
+  .cards.only-touch{grid-template-columns:1fr;gap:10px}
+  .cards.only-touch .icard{display:flex;align-items:center;gap:16px;text-align:left;padding:13px 16px}
+  .cards.only-touch .icard .ic{flex:none;height:auto}
+  .cards.only-touch .icard h4{margin:0 0 3px}
+  #intro h1{margin-top:6px}
+}
+#loadbar{width:min(340px,70vw);height:3px;background:rgba(231,214,189,.12);border-radius:2px;margin-top:26px;overflow:hidden}
+#loadbar i{display:block;height:100%;width:0%;background:var(--amber);transition:width .3s;border-radius:2px}
+#loadpct{font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.15em}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:20}
+#brand{position:absolute;top:16px;left:20px;line-height:1.25;pointer-events:auto;
+  text-decoration:none;color:inherit;display:block}
+#brand:hover b{color:var(--amber)}
+#brand .back{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--amber);opacity:.9;margin-top:3px}
+#brand b{font-family:var(--serif);font-weight:500;font-size:18px;letter-spacing:.02em}
+#brand span{display:block;font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
+#roomnav{position:absolute;top:14px;right:16px;pointer-events:auto}
+#roomsel{appearance:none;background:rgba(34,27,22,.85);color:var(--ink);border:1px solid var(--line);border-radius:9px;
+  padding:9px 34px 9px 14px;font-size:13px;font-family:var(--sans);cursor:pointer;backdrop-filter:blur(6px);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%23b3a394' fill='none' stroke-width='1.5'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center}
+#hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:12.5px;color:var(--muted);
+  background:rgba(21,17,14,.72);border:1px solid var(--line);border-radius:999px;padding:8px 18px;backdrop-filter:blur(6px);
+  transition:opacity .5s;white-space:nowrap}
+#hint.hidden{opacity:0}
+#roomtag{position:absolute;bottom:16px;left:20px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+#cross{position:absolute;top:50%;left:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;
+  background:rgba(244,236,223,.9);mix-blend-mode:difference;opacity:0;transition:opacity .3s}
+body.locked #cross{opacity:.9}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:12;
+  background:radial-gradient(120% 90% at 50% 45%, transparent 52%, rgba(12,9,6,.4) 100%)}
+
+/* ---------- painting card ---------- */
+#card{position:fixed;z-index:30;width:320px;max-width:calc(100vw - 28px);pointer-events:none;
+  background:linear-gradient(160deg, rgba(38,30,24,.94), rgba(26,20,16,.94));
+  border:1px solid var(--line);border-radius:14px;padding:16px 18px 15px;backdrop-filter:blur(10px);
+  box-shadow:0 18px 50px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4);
+  opacity:0;transform:translateY(10px) scale(.97);transition:opacity .22s ease, transform .22s ease}
+#card.show{opacity:1;transform:translateY(0) scale(1)}
+#card .head{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+#card .num{font-size:11px;letter-spacing:.14em;color:var(--muted)}
+#card .soldb{font-size:10px;letter-spacing:.14em;font-weight:700;border-radius:999px;padding:3px 10px;
+  background:#a33327;color:#ffe9e2;margin-left:auto;box-shadow:0 0 12px rgba(163,51,39,.5)}
+#card h3{margin:0 0 5px;font-family:var(--serif);font-weight:500;font-size:19px;line-height:1.3;letter-spacing:.01em}
+#card .sub{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+#card .price{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+#card .price b{color:var(--amber);font-weight:600;font-size:15px;letter-spacing:.02em}
+#card .note{font-size:12px;color:var(--muted);font-style:italic;margin-top:8px;line-height:1.5}
+#card .soldinfo{font-size:12px;color:#e8a89b;margin-top:8px}
+
+/* ---------- mobile joystick ---------- */
+#stick{position:fixed;z-index:25;width:110px;height:110px;border-radius:50%;border:1.5px solid rgba(231,214,189,.25);
+  background:rgba(34,27,22,.3);display:none;pointer-events:none}
+#stick i{position:absolute;top:50%;left:50%;width:46px;height:46px;margin:-23px;border-radius:50%;
+  background:rgba(231,214,189,.3);backdrop-filter:blur(2px)}
+@media (hover:none){ #hint{display:none} }
+#card.sheet{left:12px !important;right:12px;top:auto !important;
+  bottom:calc(14px + env(safe-area-inset-bottom));width:auto;max-width:none}
+#introback{margin-top:26px;font-size:12.5px;color:var(--muted);text-decoration:none;
+  border-bottom:1px dotted var(--muted);padding-bottom:1px}
+#introback:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="vig"></div>
+
+<div id="hud">
+  <a id="brand" href="./" title="Wróć na stronę główną"><b>Jan Kosno</b><span>1913–1996 · galeria 3D</span><span class="back">← strona główna</span></a>
+  <div id="roomnav"><select id="roomsel" title="Przejdź do sali"></select></div>
+  <div id="roomtag"></div>
+  <div id="hint">Poruszanie: <b>W A S D</b> · obrót: <b>Q</b> <b>E</b> · rozglądanie: mysz · najedź na obraz — szczegóły · <b>klik</b> = zbliżenie</div>
+  <div id="cross"></div>
+</div>
+
+<div id="card">
+  <div class="head"><span class="num"></span><span class="soldb" hidden>SPRZEDANY</span></div>
+  <h3></h3>
+  <div class="sub"></div>
+  <div class="price"></div>
+  <div class="note" hidden></div>
+  <div class="soldinfo" hidden></div>
+</div>
+
+<div id="stick"><i></i></div>
+
+<div id="intro">
+  <div class="ibox">
+    <div class="kicker">Wirtualna galeria</div>
+    <h1>Jan Kosno</h1>
+    <div class="sub">1913–1996 · 164 prace · 9 sal tematycznych</div>
+    <div class="howto">Jak zwiedzać</div>
+
+    <div class="cards only-desktop">
+      <div class="icard">
+        <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="16.5" y="1" width="13" height="13" rx="3"/><rect x="1" y="16" width="13" height="13" rx="3"/><rect x="16.5" y="16" width="13" height="13" rx="3"/><rect x="32" y="16" width="13" height="13" rx="3"/></svg></div>
+        <h4>Chodzenie</h4>
+        <p><b>W A S D</b> lub strzałki.<br><b>Shift</b> — szybszy krok.</p>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="22" height="34" viewBox="0 0 22 34" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="20" height="32" rx="10"/><line x1="11" y1="7" x2="11" y2="13"/></svg></div>
+        <h4>Rozglądanie</h4>
+        <p>Kliknij i poruszaj myszą.<br><b>Q</b> / <b>E</b> — obrót w poziomie.</p>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="36" height="30" viewBox="0 0 36 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="34" height="28"/><rect x="6.5" y="6.5" width="23" height="17"/></svg></div>
+        <h4>Obrazy</h4>
+        <p>Spójrz na obraz — szczegóły i wycena. Klik — zbliżenie, <b>Esc</b> — powrót.</p>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="26" height="32" viewBox="0 0 26 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 31V1h24v30"/><path d="M7 31V8h12v23"/></svg></div>
+        <h4>Sale</h4>
+        <p>Klawisze <b>1</b>–<b>9</b> albo lista w prawym górnym rogu.</p>
+      </div>
+    </div>
+
+    <div class="cards only-touch">
+      <div class="icard">
+        <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="44" height="28" rx="5"/><circle cx="13.5" cy="15" r="7.5" stroke-dasharray="2.6 2.6"/><circle cx="13.5" cy="15" r="2.6" fill="currentColor" stroke="none"/></svg></div>
+        <div><h4>Chodzenie</h4>
+        <p>Przeciągnij palcem po <u>lewej</u> połowie ekranu — pojawi się joystick.</p></div>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="44" height="28" rx="5"/><path d="M27 15h14"/><path d="M30 11.5 26.5 15l3.5 3.5"/><path d="M38 11.5 41.5 15 38 18.5"/></svg></div>
+        <div><h4>Rozglądanie</h4>
+        <p>Przeciągaj palcem po <u>prawej</u> połowie ekranu.</p></div>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="16" cy="16" r="3.5" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="9" opacity=".55"/><circle cx="16" cy="16" r="14" opacity=".25"/></svg></div>
+        <div><h4>Obrazy i sale</h4>
+        <p>Dotknij obrazu — szczegóły i zbliżenie. Sale wybierzesz z listy u góry ekranu.</p></div>
+      </div>
+    </div>
+
+    <button class="enter" id="enterbtn">Wejdź do galerii</button>
+    <div id="loadbar"><i></i></div>
+    <div id="loadpct">wczytywanie…</div>
+    <a id="introback" href="./">← wróć na stronę główną</a>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from './assets/three.module.js';
+import KOSNO from './assets/data.js';
+
+/* ============================== constants ============================== */
+const ROOM_W = 9;          // interior width (z)
+const WALL_H = 4.2;        // wall height
+const WALL_T = 0.3;        // wall thickness
+const DOOR_W = 2.6, DOOR_H = 3.0;
+const EYE = 1.7, HANG = 1.5;   // eye height, painting center height
+const GAP = 0.75, MARGIN = 1.1; // gap between paintings, wall end margin
+const PLAYER_R = 0.35;
+const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX'];
+
+/* ============================== scene =================================== */
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(hover: none)').matches ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+const MIRRORS = !matchMedia('(hover: none)').matches;   // polished-floor reflections (desktop only)
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xc7c0b2);
+scene.fog = new THREE.Fog(0xc7c0b2, 36, 135);
+const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, 0.15, 220);
+camera.rotation.order = 'YXZ';
+
+scene.add(new THREE.HemisphereLight(0xfff6e6, 0x9c8c76, 2.05));
+scene.add(new THREE.AmbientLight(0xffffff, .95));
+const dir = new THREE.DirectionalLight(0xfff2dd, .7);
+dir.position.set(.4, 1, .25); scene.add(dir);
+
+/* materials */
+const baseMat    = new THREE.MeshLambertMaterial({color:0x35291f});
+const corniceMat = new THREE.MeshLambertMaterial({color:0xefe9db});
+const ceilMat    = new THREE.MeshLambertMaterial({color:0xf3eee2});
+const frameMat   = new THREE.MeshLambertMaterial({color:0x2c2016});
+const frameMat2  = new THREE.MeshLambertMaterial({color:0x4a3a28});
+const benchMat   = new THREE.MeshLambertMaterial({color:0x3a2c20});
+
+/* ---------- procedural texture toolkit ---------- */
+const MAXA = renderer.capabilities.getMaxAnisotropy();
+const rnd = (a,b) => a + Math.random()*(b-a);
+const hash2 = (a,b) => { const s = Math.sin(a*127.1 + b*311.7) * 43758.5453; return s - Math.floor(s); };
+function cv(w,h){ const c = document.createElement('canvas'); c.width = w; c.height = h||w; return [c, c.getContext('2d')]; }
+function tex(c){ const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAXA; return t; }
+
+/* subtle plaster grain, multiplied by each wall colour.
+   High-frequency noise only — low-frequency blotches would reveal the tiling. */
+const plasterBase = (() => {
+  const [c,g] = cv(512, 512);
+  g.fillStyle = '#fff'; g.fillRect(0,0,512,512);
+  const id = g.getImageData(0,0,512,512);
+  for(let i=0;i<id.data.length;i+=4){ const v = 246 + Math.random()*9; id.data[i]=id.data[i+1]=id.data[i+2]=v; }
+  g.putImageData(id,0,0);
+  for(let i=0;i<900;i++){ // faint fine specks, second octave
+    g.fillStyle = `rgba(120,110,95,${rnd(.008,.02)})`;
+    g.fillRect(rnd(0,512), rnd(0,512), rnd(2,5), rnd(2,5));
+  }
+  return tex(c);
+})();
+function wallMat(color, w, h){
+  const t = plasterBase.clone(); t.needsUpdate = true;
+  t.repeat.set(Math.max(1, w/2.4), Math.max(1, h/2.4));
+  return new THREE.MeshLambertMaterial({color, map:t});
+}
+
+/* plank floor (oak / walnut / birch / weathered deck via params) */
+function planksTex({hue=32, sat=30, light=48, rows=11, gapA=.5}={}){
+  const N = 1024, [c,g] = cv(N), rh = N/rows;
+  for(let r=0;r<rows;r++){
+    const H = hue + rnd(-4,4), S = sat + rnd(-5,5), L = light + rnd(-6,6);
+    g.fillStyle = `hsl(${H} ${S}% ${L}%)`; g.fillRect(0, r*rh, N, rh);
+    for(let i=0;i<24;i++){ // grain
+      g.strokeStyle = `hsla(${H} ${S+8}% ${L - rnd(8,20)}% / ${rnd(.05,.15)})`;
+      g.lineWidth = rnd(.6,1.6);
+      const y = r*rh + rnd(2, rh-2), x = rnd(10, N*.35), len = rnd(N*.2, N*.55);
+      g.beginPath(); g.moveTo(x,y);
+      g.bezierCurveTo(x+len*.3, y+rnd(-3,3), x+len*.7, y+rnd(-3,3), x+len, y+rnd(-2,2));
+      g.stroke();
+    }
+    if(Math.random() < .55){ // knot
+      const kx = rnd(80,N-80), ky = r*rh + rnd(10,rh-10);
+      const gr = g.createRadialGradient(kx,ky,1,kx,ky,rnd(5,10));
+      gr.addColorStop(0, `hsla(${H} ${S}% ${Math.max(6,L-20)}% / .75)`); gr.addColorStop(1,'transparent');
+      g.fillStyle = gr; g.beginPath(); g.arc(kx,ky,12,0,7); g.fill();
+    }
+    g.fillStyle = `rgba(26,15,7,${gapA})`;
+    let x = rnd(-N*.3, 0);
+    while(x < N){ x += rnd(N*.25, N*.5); if(x > 3 && x < N-3) g.fillRect(x, r*rh, 2.2, rh); }
+    g.fillRect(0, r*rh + rh - 1.7, N, 1.7);
+  }
+  return tex(c);
+}
+
+/* chevron parquet, points running along the room axis */
+function chevronTex({hue=33, sat=36, light=44}={}){
+  const N = 1024, [c,g] = cv(N), bandH = 128, pw = 64, gap = 3;
+  g.fillStyle = `hsl(${hue} ${Math.min(60,sat+8)}% ${Math.max(6, light-26)}%)`; g.fillRect(0,0,N,N);
+  const cols = N/pw;
+  for(let b=0;b<N/bandH;b++){
+    const y0 = b*bandH, up = b%2 === 0;
+    g.save(); g.beginPath(); g.rect(0,y0,N,bandH); g.clip();
+    for(let j=-N; j<2*N; j+=pw){
+      const ci = ((j/pw) % cols + cols) % cols;   // deterministic per column → seamless wrap
+      const L = light + (hash2(ci, b) - .5)*14, H = hue + (hash2(ci+7, b) - .5)*6;
+      g.fillStyle = `hsl(${H} ${sat}% ${L}%)`;
+      g.beginPath();
+      if(up){ g.moveTo(j, y0+bandH); g.lineTo(j+bandH, y0); g.lineTo(j+bandH+pw-gap, y0); g.lineTo(j+pw-gap, y0+bandH); }
+      else  { g.moveTo(j, y0);       g.lineTo(j+bandH, y0+bandH); g.lineTo(j+bandH+pw-gap, y0+bandH); g.lineTo(j+pw-gap, y0); }
+      g.closePath(); g.fill();
+      g.strokeStyle = `hsla(${H} ${sat}% ${L-12}% / .25)`; g.lineWidth = 1;
+      for(let k=1;k<3;k++){
+        const o = pw*k/3; g.beginPath();
+        if(up){ g.moveTo(j+o, y0+bandH); g.lineTo(j+bandH+o, y0); } else { g.moveTo(j+o, y0); g.lineTo(j+bandH+o, y0+bandH); }
+        g.stroke();
+      }
+    }
+    g.restore();
+    g.fillStyle = 'rgba(20,10,4,.45)'; g.fillRect(0, y0, N, 1.6);
+  }
+  return tex(c);
+}
+
+/* basket-weave parquet */
+function basketTex({hue=12, sat=40, light=32}={}){
+  const N = 1024, S = 128, sw = S/4, [c,g] = cv(N);
+  g.fillStyle = `hsl(${hue} ${sat}% ${Math.max(5, light-20)}%)`; g.fillRect(0,0,N,N);
+  for(let gi=0; gi<N/S; gi++) for(let gj=0; gj<N/S; gj++){
+    const horiz = (gi+gj) % 2 === 0;
+    for(let k=0;k<4;k++){
+      const L = light + (hash2(gi*4+k, gj) - .5)*12;
+      g.fillStyle = `hsl(${hue + (hash2(gi, gj*4+k)-.5)*5} ${sat}% ${L}%)`;
+      if(horiz) g.fillRect(gi*S+2, gj*S + k*sw + 1, S-4, sw-2);
+      else      g.fillRect(gi*S + k*sw + 1, gj*S+2, sw-2, S-4);
+    }
+  }
+  return tex(c);
+}
+
+/* stone slabs */
+function stoneTex({hue=210, sat=7, light=50}={}){
+  const N = 1024, T = 256, [c,g] = cv(N);
+  g.fillStyle = '#282623'; g.fillRect(0,0,N,N);
+  for(let i=0;i<4;i++) for(let j=0;j<4;j++){
+    const L = light + (hash2(i,j)-.5)*12;
+    g.fillStyle = `hsl(${hue + (hash2(j,i)-.5)*14} ${sat}% ${L}%)`;
+    g.fillRect(i*T+2, j*T+2, T-4, T-4);
+    for(let k=0;k<260;k++){
+      g.fillStyle = `hsla(${hue} ${sat}% ${L + rnd(-18,18)}% / ${rnd(.06,.2)})`;
+      g.fillRect(i*T + rnd(4,T-8), j*T + rnd(4,T-8), rnd(1,3), rnd(1,3));
+    }
+    g.strokeStyle = `hsla(${hue} ${sat+4}% ${L-14}% / .3)`; g.lineWidth = 1;
+    for(let k=0;k<3;k++){
+      g.beginPath();
+      let x = i*T + rnd(10,T-10), y = j*T + rnd(10,T-10);
+      g.moveTo(x,y);
+      for(let s2=0;s2<4;s2++){
+        x = Math.max(i*T+4, Math.min(i*T+T-4, x + rnd(-40,40)));
+        y = Math.max(j*T+4, Math.min(j*T+T-4, y + rnd(-40,40)));
+        g.lineTo(x,y);
+      }
+      g.stroke();
+    }
+  }
+  return tex(c);
+}
+
+/* terrazzo */
+function terrazzoTex(){
+  const N = 1024, [c,g] = cv(N);
+  g.fillStyle = '#e8dfcf'; g.fillRect(0,0,N,N);
+  const chips = ['#b3a28d','#8f8578','#c0724a','#5d6b74','#8f9c82','#d9c9a8','#4a443c','#a86a6a'];
+  for(let i=0;i<520;i++){
+    const x = rnd(0,N), y = rnd(0,N), r = rnd(3,15), col = chips[Math.floor(rnd(0,chips.length))];
+    const nv = 3 + Math.floor(rnd(0,3)), pts = [];
+    for(let k=0;k<nv;k++){ const a = k/nv*Math.PI*2 + rnd(0,.8); pts.push([Math.cos(a)*r*rnd(.6,1.2), Math.sin(a)*r*rnd(.6,1.2)]); }
+    g.fillStyle = col; g.globalAlpha = rnd(.75,.95);
+    for(const [ox,oy] of [[0,0],[N,0],[-N,0],[0,N],[0,-N]]){   // wrap copies → seamless
+      g.beginPath(); pts.forEach(([px,py],k) => k ? g.lineTo(x+ox+px, y+oy+py) : g.moveTo(x+ox+px, y+oy+py));
+      g.closePath(); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+  for(let i=0;i<1600;i++){ g.fillStyle = `rgba(90,80,66,${rnd(.06,.18)})`; g.fillRect(rnd(0,N), rnd(0,N), 1.3, 1.3); }
+  return tex(c);
+}
+
+/* veined marble tiles */
+function marbleTex(){
+  const N = 1024, T = 512, [c,g] = cv(N);
+  g.fillStyle = '#b6ae9e'; g.fillRect(0,0,N,N);
+  for(let i=0;i<2;i++) for(let j=0;j<2;j++){
+    const L = 88 + (hash2(i,j)-.5)*4;
+    g.fillStyle = `hsl(42 22% ${L}%)`;
+    g.fillRect(i*T+2, j*T+2, T-4, T-4);
+    g.save(); g.beginPath(); g.rect(i*T+2, j*T+2, T-4, T-4); g.clip();
+    for(let v=0;v<7;v++){
+      g.strokeStyle = `rgba(128,120,106,${rnd(.12,.3)})`; g.lineWidth = rnd(.7,2.2);
+      let x = i*T + rnd(0,T), y = j*T;
+      g.beginPath(); g.moveTo(x,y);
+      while(y < j*T + T){ x += rnd(-34,34); y += rnd(20,60); g.lineTo(x,y); }
+      g.stroke();
+    }
+    g.restore();
+  }
+  return tex(c);
+}
+
+/* artwork textures: skip scene tone-mapping and add a gentle saturation lift,
+   so the canvases stay as vivid as the original photographs */
+const ART_FILTER = 'saturate(1.14) contrast(1.02)';
+function artTex(im){
+  const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+  const g = c.getContext('2d');
+  g.filter = ART_FILTER;
+  g.drawImage(im, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/* soft blurred rectangle — contact/drop shadows */
+const shadowTex = (() => {
+  const [c,g] = cv(256, 256);
+  g.filter = 'blur(20px)';
+  g.fillStyle = 'rgba(0,0,0,.8)';
+  g.fillRect(52, 52, 152, 152);
+  return new THREE.CanvasTexture(c);
+})();
+
+/* vertical gradient (dark at v=0 → clear) — ambient occlusion strips */
+const aoTex = (() => {
+  const [c,g] = cv(16, 256);
+  const gr = g.createLinearGradient(0, 256, 0, 0);
+  gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0,0,16,256);
+  return new THREE.CanvasTexture(c);
+})();
+function aoMat(op){ return new THREE.MeshBasicMaterial({map:aoTex, transparent:true, opacity:op, depthWrite:false}); }
+
+function wrapText(g, txt, x, y, maxW, lh){
+  let line = '';
+  for(const w of txt.split(' ')){
+    const t2 = line ? line + ' ' + w : w;
+    if(g.measureText(t2).width > maxW && line){ g.fillText(line, x, y); y += lh; line = w; }
+    else line = t2;
+  }
+  if(line){ g.fillText(line, x, y); y += lh; }
+  return y;
+}
+
+/* per-room look: wall colour, floor recipe, accent */
+const STYLES = {
+  '__lobby':              {wall:'#d8cec0', accent:'#b08d4f', fscale:1.8, floor:() => marbleTex()},
+  'Paryż i Wenecja':      {wall:'#4b5d70', accent:'#c8a165', fscale:2.6, floor:() => chevronTex({hue:33, sat:36, light:44})},
+  'Pejzaże':              {wall:'#8f977c', accent:'#5d6647', fscale:3.0, floor:() => planksTex({hue:36, sat:30, light:52})},
+  'Tatry i góry':         {wall:'#a4adb4', accent:'#4f5b66', fscale:3.0, floor:() => stoneTex()},
+  'Miasta polskie':       {wall:'#9c5b40', accent:'#d9a05b', fscale:3.0, floor:() => planksTex({hue:22, sat:34, light:30, rows:9})},
+  'Mariny':               {wall:'#2f4457', accent:'#7fa3b8', fscale:3.4, floor:() => planksTex({hue:33, sat:12, light:50, rows:12, gapA:.6})},
+  'Impresje i abstrakcje':{wall:'#e7e0d1', accent:'#c67a4e', fscale:2.2, floor:() => terrazzoTex()},
+  'Sceny i symbolizm':    {wall:'#6e3439', accent:'#c98f4c', fscale:2.6, floor:() => chevronTex({hue:22, sat:30, light:26})},
+  'Portrety i akty':      {wall:'#41544a', accent:'#c9a25e', fscale:2.2, floor:() => basketTex({hue:17, sat:30, light:29})},
+  'Rysunki i dyptyki':    {wall:'#4c4844', accent:'#a8a29a', fscale:2.4, floor:() => planksTex({hue:38, sat:24, light:60, rows:14, gapA:.45})},
+};
+const styleOf = r => r.lobby ? STYLES.__lobby : STYLES[r.name];
+
+function textTexture(lines, w=1024, h=256, opts={}){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  if(opts.bg !== null){ g.fillStyle = opts.bg || '#f2ede0'; g.fillRect(0,0,w,h); }
+  if(opts.border){ g.strokeStyle = 'rgba(60,45,30,.35)'; g.lineWidth = 6; g.strokeRect(6,6,w-12,h-12); }
+  if(opts.bar){ g.fillStyle = opts.bar; g.fillRect(w*0.36, h-24, w*0.28, 9); }
+  g.fillStyle = opts.ink || '#3a2e22'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const n = lines.length;
+  lines.forEach((L, i) => {
+    g.font = L.font;
+    g.fillStyle = L.ink || opts.ink || '#3a2e22';
+    g.fillText(L.text, w/2, h*(i+1)/(n+1) + (L.dy||0));
+  });
+  if(opts.dot){ g.fillStyle = '#c0392b'; g.beginPath(); g.arc(w-38, 40, 16, 0, 7); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/* ============================== layout ================================== */
+/* group items by room, compute room lengths, painting placements */
+const roomsData = KOSNO.groups.map(g => ({name:g, items: KOSNO.items.filter(i => i.group === g)}));
+
+function unitW(it){ const w = it.w/100; return it.imgs.length > 1 ? w*2 + 0.06 : w; }
+
+const rooms = [];   // {name, x0, x1, doorX}
+const placements = []; // {item, cx, cy, cz, rotY, w, h}
+const walls = [];   // collision AABBs {x0,x1,z0,z1}
+let cursorX = 0;
+
+function addBox(w, h, d, x, y, z, mat){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z); scene.add(m); return m;
+}
+/* mirror a mesh below the floor plane — seen through the semi-transparent floor */
+function addMirror(m){
+  if(!MIRRORS) return m;
+  const c = m.clone();
+  c.scale.y *= -1; c.position.y *= -1;
+  scene.add(c);
+  return m;
+}
+
+/* lobby */
+const LOBBY_L = 9;
+rooms.push({name:'Wejście', x0:0, x1:LOBBY_L, lobby:true});
+cursorX = LOBBY_L;
+
+for(const rd of roomsData){
+  const units = rd.items.map(it => ({it, w: unitW(it)}));
+  const total = units.reduce((s,u) => s+u.w, 0);
+  // split into two walls, balanced by width
+  let acc = 0, split = units.length;
+  for(let i=0;i<units.length;i++){ acc += units[i].w; if(acc >= total/2){ split = i+1; break; } }
+  const north = units.slice(0, split), south = units.slice(split);
+  const lenOf = a => a.reduce((s,u)=>s+u.w,0) + GAP*Math.max(0,a.length-1) + 2*MARGIN;
+  const L = Math.max(lenOf(north), lenOf(south), 8);
+  const x0 = cursorX + WALL_T, x1 = x0 + L;
+  rooms.push({name:rd.name, x0, x1});
+  // north wall west->east, south wall east->west (snake)
+  const place = (arr, z, rotY, reverse) => {
+    const content = arr.reduce((s,u)=>s+u.w,0) + GAP*Math.max(0,arr.length-1);
+    let x = x0 + (L - content)/2;
+    const seq = reverse ? [...arr].reverse() : arr;
+    for(const u of seq){
+      placements.push({item:u.it, cx:x + u.w/2, cy:HANG, cz:z, rotY, w:u.w, h:u.it.h/100});
+      x += u.w + GAP;
+    }
+  };
+  place(north, -ROOM_W/2, 0, false);
+  place(south,  ROOM_W/2, Math.PI, true);
+  cursorX = x1;
+}
+const END_X = cursorX + WALL_T;
+
+/* ---------- build architecture ---------- */
+/* per-room floors & side walls */
+for(const r of rooms){
+  const st = styleOf(r);
+  const x0 = r.lobby ? 0 : r.x0 - WALL_T, x1 = r.x1, len = x1 - x0, mid = (x0 + x1)/2;
+  const ix0 = r.lobby ? 0 : r.x0;
+  const ft = st.floor();
+  ft.repeat.set(len/st.fscale, ROOM_W/st.fscale);
+  // polished floor: specular sheen + slight transparency revealing the mirrored scene below
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(len, ROOM_W),
+    new THREE.MeshPhongMaterial({map:ft, specular:0x35302a, shininess:64,
+      transparent:MIRRORS, opacity:MIRRORS ? .9 : 1}));
+  fl.rotation.x = -Math.PI/2; fl.position.set(mid, 0, 0); scene.add(fl);
+  for(const s of [-1, 1]){
+    const m = new THREE.Mesh(new THREE.BoxGeometry(len, WALL_H, WALL_T), wallMat(st.wall, len, WALL_H));
+    m.position.set(mid, WALL_H/2, s*(ROOM_W/2 + WALL_T/2)); scene.add(m);
+    addMirror(m);
+    /* baked contact shading: floor line, ceiling line, floor strip, corners */
+    const zf = s*(ROOM_W/2 - 0.012), ry = s>0 ? Math.PI : 0;
+    const b1 = new THREE.Mesh(new THREE.PlaneGeometry(len, .55), aoMat(.3));
+    b1.rotation.y = ry; b1.position.set(mid, .27, zf); scene.add(b1);
+    const b2 = new THREE.Mesh(new THREE.PlaneGeometry(len, .5), aoMat(.22));
+    b2.rotation.set(0, ry, Math.PI); b2.position.set(mid, WALL_H - .25, zf); scene.add(b2);
+    const f1 = new THREE.Mesh(new THREE.PlaneGeometry(len, .5), aoMat(.2));
+    f1.rotation.set(-Math.PI/2, 0, s>0 ? 0 : Math.PI);
+    f1.position.set(mid, .012, s*(ROOM_W/2 - .25)); scene.add(f1);
+    for(const [cx, rz] of [[ix0 + .3, -Math.PI/2], [x1 - .3, Math.PI/2]]){
+      const cn = new THREE.Mesh(new THREE.PlaneGeometry(WALL_H, .6), aoMat(.22));
+      cn.rotation.set(0, ry, s>0 ? -rz : rz);
+      cn.position.set(cx, WALL_H/2, zf); scene.add(cn);
+    }
+  }
+}
+
+/* ceiling, skirting, cornice, light strip, side-wall collisions */
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(END_X, ROOM_W + 2*WALL_T), ceilMat);
+ceil.rotation.x = Math.PI/2; ceil.position.set(END_X/2, WALL_H, 0); scene.add(ceil);
+if(MIRRORS){ // mirrored ceiling must face up — plain scale-flip would leave it invisible
+  const mc = new THREE.Mesh(new THREE.PlaneGeometry(END_X, ROOM_W + 2*WALL_T), ceilMat);
+  mc.rotation.x = -Math.PI/2; mc.position.set(END_X/2, -WALL_H, 0); scene.add(mc);
+}
+for(const s of [-1, 1]){
+  addMirror(addBox(END_X, 0.14, 0.045, END_X/2, 0.07, s*(ROOM_W/2 - 0.02), baseMat));
+  addMirror(addBox(END_X, 0.16, 0.06,  END_X/2, WALL_H - 0.08, s*(ROOM_W/2 - 0.028), corniceMat));
+  walls.push({x0:0, x1:END_X, z0:s>0? ROOM_W/2 : -ROOM_W/2-WALL_T, z1:s>0? ROOM_W/2+WALL_T : -ROOM_W/2});
+}
+/* recessed ceiling light panels (their reflections glint in the floor) */
+{
+  const trimMat = new THREE.MeshLambertMaterial({color:0x9e968a});
+  const panelMat = new THREE.MeshBasicMaterial({color:0xfff4dd});
+  for(let x = 3.6; x < END_X - 2; x += 4.2){
+    const tr = new THREE.Mesh(new THREE.PlaneGeometry(2.86, 1.36), trimMat);
+    tr.rotation.x = Math.PI/2; tr.position.set(x, WALL_H - 0.004, 0); scene.add(tr);
+    const pn = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.1), panelMat);
+    pn.rotation.x = Math.PI/2; pn.position.set(x, WALL_H - 0.009, 0); scene.add(pn);
+    if(MIRRORS){ // face-up clones below the floor
+      const mt = tr.clone(); mt.rotation.x = -Math.PI/2; mt.position.y = -(WALL_H - 0.004); scene.add(mt);
+      const mp = pn.clone(); mp.rotation.x = -Math.PI/2; mp.position.y = -(WALL_H - 0.009); scene.add(mp);
+    }
+  }
+}
+
+/* end + boundary walls with doorways — two colour layers (west/east face) */
+function boundaryWall(x, withDoor, cWest, cEast){
+  const T2 = WALL_T/2;
+  const layer = (cx, col, h, zc, zl, y) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(T2, h, zl), wallMat(col, zl, h));
+    m.position.set(cx, y, zc); scene.add(m);
+    addMirror(m);
+  };
+  const both = (h, zc, zl, y) => {
+    layer(x + T2/2, cWest, h, zc, zl, y);
+    layer(x + WALL_T - T2/2, cEast, h, zc, zl, y);
+  };
+  if(withDoor){
+    const segW = (ROOM_W - DOOR_W)/2;
+    both(WALL_H, -(DOOR_W/2 + segW/2), segW, WALL_H/2);
+    both(WALL_H,  (DOOR_W/2 + segW/2), segW, WALL_H/2);
+    both(WALL_H - DOOR_H, 0, DOOR_W, DOOR_H + (WALL_H-DOOR_H)/2);
+    // door jambs (dark trim, proud of the wall faces so no surface is coplanar)
+    addMirror(addBox(WALL_T+0.06, DOOR_H+0.03, 0.08, x+WALL_T/2, (DOOR_H+0.03)/2, -DOOR_W/2-0.02, baseMat));
+    addMirror(addBox(WALL_T+0.06, DOOR_H+0.03, 0.08, x+WALL_T/2, (DOOR_H+0.03)/2,  DOOR_W/2+0.02, baseMat));
+    addMirror(addBox(WALL_T+0.06, 0.1, DOOR_W+0.12, x+WALL_T/2, DOOR_H+0.03, 0, baseMat));
+    walls.push({x0:x, x1:x+WALL_T, z0:-ROOM_W/2, z1:-DOOR_W/2});
+    walls.push({x0:x, x1:x+WALL_T, z0: DOOR_W/2, z1: ROOM_W/2});
+  } else {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, WALL_H, ROOM_W + 2*WALL_T),
+      wallMat(cEast ?? cWest, ROOM_W, WALL_H));
+    m.position.set(x + WALL_T/2, WALL_H/2, 0); scene.add(m);
+    addMirror(m);
+    walls.push({x0:x, x1:x+WALL_T, z0:-ROOM_W/2, z1:ROOM_W/2});
+  }
+}
+const FEATURE = '#2a211b';   // espresso feature wall behind the lobby title
+boundaryWall(-WALL_T, false, FEATURE);
+for(let i=1;i<rooms.length;i++)
+  boundaryWall(rooms[i].x0 - WALL_T, true, styleOf(rooms[i-1]).wall, styleOf(rooms[i]).wall);
+boundaryWall(END_X - WALL_T, false, styleOf(rooms[rooms.length-1]).wall);
+
+/* dark backdrop below the transparent floors — the "depth" of the polish */
+if(MIRRORS){
+  const uw = new THREE.Mesh(new THREE.PlaneGeometry(END_X + 4, ROOM_W + 4),
+    new THREE.MeshBasicMaterial({color:0x0e0c0a}));
+  uw.rotation.x = -Math.PI/2; uw.position.set(END_X/2, -WALL_H - 0.6, 0); scene.add(uw);
+}
+
+/* room name plaques above each doorway (entry side) */
+rooms.forEach((r, i) => {
+  if(r.lobby) return;
+  const tex = textTexture([
+    {text:`SALA ${ROMAN[i-1]}`, font:'600 44px system-ui', ink:'#8a7a66', dy:6},
+    {text:r.name.toUpperCase(), font:'500 78px Georgia', dy:-2},
+    {text:`${roomsData[i-1].items.length} prac`, font:'400 36px system-ui', ink:'#8a7a66', dy:-8},
+  ], 1024, 300, {bg:'#f4efe4', bar: styleOf(r).accent});
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.76),
+    new THREE.MeshBasicMaterial({map:tex}));
+  m.position.set(r.x0 - WALL_T - 0.02, DOOR_H + (WALL_H-DOOR_H)/2, 0);
+  m.rotation.y = -Math.PI/2; scene.add(m);
+});
+
+/* lobby: floating title on the espresso feature wall + rug */
+{
+  const tex = textTexture([
+    {text:'JAN KOSNO', font:'500 170px Georgia', ink:'#ecdfc6', dy:8},
+    {text:'1913 – 1996', font:'400 56px Georgia', ink:'#a8917a'},
+    {text:'MALARSTWO · 164 PRACE · 9 SAL', font:'500 36px system-ui', ink:'#8d7a66', dy:-4},
+  ], 1600, 560, {bg:null, bar:'#b08d4f'});
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 5.4*560/1600),
+    new THREE.MeshBasicMaterial({map:tex, transparent:true}));
+  m.position.set(0.02, 2.15, 0); m.rotation.y = Math.PI/2; scene.add(m);
+  addMirror(m);
+
+  /* portrait of the artist (№ 107 „Autoportret") on the north lobby wall */
+  {
+    const pw = 0.88, ph = pw * 60.0/40.5;
+    const pg = new THREE.Group();
+    pg.position.set(2.6, 1.66, -ROOM_W/2); scene.add(pg);
+    const shd = new THREE.Mesh(new THREE.PlaneGeometry(pw + 0.5, ph + 0.5),
+      new THREE.MeshBasicMaterial({map:shadowTex, transparent:true, opacity:.5, depthWrite:false}));
+    shd.position.set(0.05, -0.08, 0.01); pg.add(shd);
+    const pf = new THREE.Mesh(new THREE.BoxGeometry(pw + 0.16, ph + 0.16, 0.065), frameMat2);
+    pf.position.z = 0.04; pg.add(pf);
+    const pmat = new THREE.MeshBasicMaterial({color:0xcfc6b5, toneMapped:false});
+    const pp = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), pmat);
+    pp.position.z = 0.076; pg.add(pp);
+    new THREE.ImageLoader().load('assets/img/l/107.jpg', im => {
+      const t = artTex(im); t.anisotropy = Math.min(8, MAXA);
+      pmat.map = t; pmat.color.set(0xffffff); pmat.needsUpdate = true;
+    });
+    const cap = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.098),
+      new THREE.MeshBasicMaterial({map: textTexture([
+        {text:'JAN KOSNO · AUTOPORTRET', font:'500 56px system-ui', dy:2},
+      ], 1024, 128, {bg:'#f4efe3'})}));
+    cap.position.set(0, -ph/2 - 0.19, 0.024); pg.add(cap);
+    if(MIRRORS){ const mg = pg.clone(); mg.scale.y = -1; mg.position.y = -pg.position.y; scene.add(mg); }
+  }
+
+  /* biography panel next to the portrait */
+  {
+    const [bc, bg2] = cv(1024, 1000);
+    bg2.fillStyle = '#f4efe3'; bg2.fillRect(0, 0, 1024, 1000);
+    bg2.strokeStyle = 'rgba(70,54,38,.35)'; bg2.lineWidth = 4; bg2.strokeRect(14, 14, 996, 972);
+    bg2.textAlign = 'left'; bg2.textBaseline = 'alphabetic';
+    bg2.fillStyle = '#8a7a66'; bg2.font = '600 30px system-ui';
+    bg2.fillText('O  M A L A R Z U', 62, 86);
+    bg2.fillStyle = '#2f2519'; bg2.font = '500 84px Georgia';
+    bg2.fillText('Jan Kosno', 58, 174);
+    bg2.fillStyle = '#6f5f4c'; bg2.font = '400 40px Georgia';
+    bg2.fillText('1913 – 1996', 60, 228);
+    bg2.fillStyle = '#b08d4f'; bg2.fillRect(60, 256, 210, 7);
+    bg2.fillStyle = '#3a2f22'; bg2.font = '400 33px system-ui';
+    let yy = 320;
+    for(const par of [
+      'Malarz i rysownik, związany z krakowskim i śląskim środowiskiem artystycznym oraz z Krakowską Grupą Twórczą ZPAP „Postawy”.',
+      'Na przełomie lat 60. i 70. pracował w Paryżu — powstały wówczas cykle znad Sekwany, z Marché aux Puces i widoki dachów miasta. Malował Wenecję, Tatry, polskie miasta i morze; obok pejzaży tworzył impresje, abstrakcje i sceny symboliczne.',
+      'Wystawę „Rysunek i malarstwo Jana Kosno” pokazała Galeria Extravagance w Zamku Sieleckim w Sosnowcu (2002).',
+      'Kolekcja obejmuje 164 prace w dziewięciu salach.',
+    ]) yy = wrapText(bg2, par, 60, yy, 900, 46) + 24;
+    const bt = new THREE.CanvasTexture(bc);
+    bt.colorSpace = THREE.SRGBColorSpace; bt.anisotropy = Math.min(8, MAXA);
+    const bio = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.0*1000/1024),
+      new THREE.MeshBasicMaterial({map:bt}));
+    bio.position.set(5.9, 1.68, -ROOM_W/2 + 0.024); scene.add(bio);
+    const bsh = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.35),
+      new THREE.MeshBasicMaterial({map:shadowTex, transparent:true, opacity:.45, depthWrite:false}));
+    bsh.position.set(5.95, 1.61, -ROOM_W/2 + 0.012); scene.add(bsh);
+    addMirror(bio);
+  }
+
+  const rt = (() => {
+    const [c,g] = cv(768, 512);
+    g.fillStyle = '#5e2f2c'; g.fillRect(0,0,768,512);
+    g.strokeStyle = '#b08d4f'; g.lineWidth = 10; g.strokeRect(30,30,708,452);
+    g.strokeStyle = 'rgba(216,201,168,.8)'; g.lineWidth = 3; g.strokeRect(52,52,664,408);
+    g.save(); g.beginPath(); g.rect(60,60,648,392); g.clip();
+    g.strokeStyle = 'rgba(232,214,180,.07)'; g.lineWidth = 2;
+    for(let d=-512; d<768+512; d+=44){
+      g.beginPath(); g.moveTo(d,0); g.lineTo(d+512,512); g.stroke();
+      g.beginPath(); g.moveTo(d+512,0); g.lineTo(d,512); g.stroke();
+    }
+    g.restore();
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, MAXA);
+    return t;
+  })();
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 2.9), new THREE.MeshLambertMaterial({map:rt}));
+  rug.rotation.x = -Math.PI/2; rug.position.set(4.7, 0.012, 0); scene.add(rug);
+
+  // benches with a cushion in each room's accent colour
+  for(const r of rooms){
+    if(r.lobby || r.x1 - r.x0 <= 12) continue;
+    const bx = (r.x0 + r.x1)/2;
+    const cushMat = new THREE.MeshLambertMaterial({color: styleOf(r).accent});
+    addMirror(addBox(2.2, 0.06, 0.6, bx, 0.44, 0, benchMat));
+    addMirror(addBox(2.12, 0.09, 0.54, bx, 0.515, 0, cushMat));
+    addMirror(addBox(0.12, 0.41, 0.5, bx-0.92, 0.205, 0, benchMat));
+    addMirror(addBox(0.12, 0.41, 0.5, bx+0.92, 0.205, 0, benchMat));
+    const bsh = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.15),
+      new THREE.MeshBasicMaterial({map:shadowTex, transparent:true, opacity:.32, depthWrite:false}));
+    bsh.rotation.x = -Math.PI/2; bsh.position.set(bx, 0.014, 0); scene.add(bsh);
+  }
+}
+
+/* ============================== paintings =============================== */
+const raycastTargets = [];
+const itemMeshes = new Map();   // item.n -> {planes:[{mesh,img}], halo, group}
+
+const phGeo = new THREE.PlaneGeometry(1, 1);
+for(const p of placements){
+  const it = p.item;
+  const g = new THREE.Group();
+  g.position.set(p.cx, p.cy, p.cz);
+  g.rotation.y = p.rotY;
+  scene.add(g);
+  const panels = it.imgs.length;
+  const panelW = panels > 1 ? (p.w - 0.06)/2 : p.w;
+  const rec = {planes:[], group:g, placement:p};
+  for(let k=0;k<panels;k++){
+    const offX = panels > 1 ? (k===0 ? -(panelW/2+0.03) : (panelW/2+0.03)) : 0;
+    // frame
+    const fb = 0.05;
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(panelW + fb*2, p.h + fb*2, 0.055), it.tier==='A+'||it.tier==='A'?frameMat2:frameMat);
+    frame.position.set(offX, 0, 0.035); g.add(frame);
+    // canvas
+    const mat = new THREE.MeshBasicMaterial({color:0xcfc6b5, toneMapped:false});
+    const plane = new THREE.Mesh(phGeo, mat);
+    plane.scale.set(panelW, p.h, 1);
+    plane.position.set(offX, 0, 0.068);
+    plane.userData.item = it; plane.userData.img = it.imgs[k];
+    g.add(plane); raycastTargets.push(plane);
+    rec.planes.push({mesh:plane, img:it.imgs[k]});
+  }
+  // contact shadow under the frame
+  const shd = new THREE.Mesh(new THREE.PlaneGeometry(p.w + 0.42, p.h + 0.42),
+    new THREE.MeshBasicMaterial({map:shadowTex, transparent:true, opacity:.5, depthWrite:false}));
+  shd.position.set(0.045, -0.07, 0.01); g.add(shd);
+  // number plaque (with red dot if sold)
+  const plq = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.115),
+    new THREE.MeshBasicMaterial({map: textTexture([
+      {text:`№ ${String(it.n).padStart(3,'0')}`, font:'500 64px system-ui', dy:2},
+    ], 256, 172, {bg:'#f4efe3', border:false, dot: it.sold})}));
+  plq.position.set(p.w/2 + 0.19, -p.h/2 + 0.09, 0.024); g.add(plq);
+  // reflection in the polished floor (shared materials → textures stay in sync)
+  if(MIRRORS){ const mg = g.clone(); mg.scale.y = -1; mg.position.y = -p.cy; scene.add(mg); }
+  itemMeshes.set(it.n, rec);
+}
+
+/* ============================== textures ================================ */
+const imgLoader = new THREE.ImageLoader();
+const texCache = new Map();  // img -> {s:tex|1(loading), l:tex|1}
+let loadedSmall = 0;
+const totalSmall = new Set(placements.flatMap(p => p.item.imgs)).size;
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+function applyTex(img, tex){
+  for(const rec of itemMeshes.values())
+    for(const pl of rec.planes)
+      if(pl.img === img){ pl.mesh.material.map = tex; pl.mesh.material.color.set(0xffffff); pl.mesh.material.needsUpdate = true; }
+}
+function loadTex(img, size, cb){
+  imgLoader.load(`assets/img/${size}/${img}.jpg`, im => {
+    const t = artTex(im);
+    t.anisotropy = Math.min(8, maxAniso);
+    cb(t);
+  });
+}
+/* small textures: progressive queue ordered by distance from lobby */
+const smallQueue = [...new Set(placements.flatMap(p => p.item.imgs))];
+let inFlight = 0;
+function pumpSmall(){
+  while(inFlight < 4 && smallQueue.length){
+    const img = smallQueue.shift();
+    inFlight++;
+    texCache.set(img, {s:1, l:null});
+    loadTex(img, 's', t => {
+      texCache.get(img).s = t;
+      const e = texCache.get(img);
+      if(e.l === null || e.l === 1) applyTex(img, t);
+      loadedSmall++; inFlight--;
+      updateLoadUI(); pumpSmall();
+    });
+  }
+}
+function updateLoadUI(){
+  const pct = Math.round(100*loadedSmall/totalSmall);
+  document.querySelector('#loadbar i').style.width = pct + '%';
+  document.getElementById('loadpct').textContent = pct >= 100 ? 'gotowe' : `wczytywanie obrazów… ${pct}%`;
+}
+pumpSmall();
+
+/* hi-res upgrade for nearby paintings */
+const HI_MAX = 14;
+const hiSet = new Set();
+setInterval(() => {
+  const cx = camera.position.x, cz = camera.position.z;
+  const scored = [];
+  for(const p of placements){
+    const d = Math.hypot(p.cx - cx, p.cz - cz);
+    for(const img of p.item.imgs) scored.push({img, d});
+  }
+  scored.sort((a,b) => a.d - b.d);
+  const want = new Set(scored.filter(s => s.d < 10).slice(0, HI_MAX).map(s => s.img));
+  // upgrade
+  for(const img of want){
+    const e = texCache.get(img);
+    if(!e || e.l) continue;
+    e.l = 1;
+    loadTex(img, 'l', t => {
+      const e2 = texCache.get(img);
+      e2.l = t;
+      if(hiSet.has(img) || want.has(img)){ applyTex(img, t); hiSet.add(img); }
+      else { t.dispose(); e2.l = null; }
+    });
+    hiSet.add(img);
+  }
+  // downgrade far ones
+  for(const img of [...hiSet]){
+    const d = scored.find(s => s.img === img)?.d ?? 1e9;
+    if(d > 16){
+      const e = texCache.get(img);
+      if(e && e.l && e.l !== 1){ e.l.dispose(); e.l = null; if(e.s && e.s !== 1) applyTex(img, e.s); }
+      else if(e) e.l = null;
+      hiSet.delete(img);
+    }
+  }
+}, 700);
+
+/* ============================== movement ================================ */
+let yaw = -Math.PI/2, pitch = 0;
+camera.position.set(2.2, EYE, 0);
+const keys = {};
+const vel = new THREE.Vector3();
+let locked = false, focusItem = null, focusAnim = null;
+
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if(e.code.startsWith('Digit')){
+    const i = +e.code.slice(5);
+    if(i >= 1 && i <= 9) teleport(i);
+  }
+  if(focusItem && ['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) endFocus();
+});
+addEventListener('keyup', e => keys[e.code] = false);
+
+function collide(px, pz){
+  for(let pass=0; pass<2; pass++){
+    for(const w of walls){
+      const x0 = w.x0 - PLAYER_R, x1 = w.x1 + PLAYER_R;
+      const z0 = w.z0 - PLAYER_R, z1 = w.z1 + PLAYER_R;
+      if(px > x0 && px < x1 && pz > z0 && pz < z1){
+        const dx = Math.min(px - x0, x1 - px);
+        const dz = Math.min(pz - z0, z1 - pz);
+        if(dx < dz) px = (px - x0 < x1 - px) ? x0 : x1;
+        else        pz = (pz - z0 < z1 - pz) ? z0 : z1;
+      }
+    }
+  }
+  return [px, pz];
+}
+
+function teleport(i){
+  const r = rooms[i]; if(!r) return;
+  endFocus(true);
+  camera.position.set(r.x0 + 1.4, EYE, 0);
+  yaw = -Math.PI/2; pitch = 0;
+  flashHint(`Sala ${ROMAN[i-1]} — ${r.name}`);
+}
+
+/* pointer lock */
+const intro = document.getElementById('intro');
+const isTouch = matchMedia('(hover: none)').matches;
+intro.addEventListener('click', e => {
+  if(e.target.closest('a')) return;   // back link navigates, don't enter
+  intro.classList.add('hidden');
+  if(!isTouch) canvas.requestPointerLock();
+});
+canvas.addEventListener('click', () => {
+  if(isTouch) return;
+  if(!locked){ canvas.requestPointerLock(); }
+});
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === canvas;
+  document.body.classList.toggle('locked', locked);
+});
+addEventListener('mousemove', e => {
+  if(!locked || focusAnim) return;
+  yaw   -= e.movementX * 0.0023;
+  pitch -= e.movementY * 0.0023;
+  pitch = Math.max(-1.35, Math.min(1.35, pitch));
+});
+
+/* touch controls */
+const stick = document.getElementById('stick');
+let moveTouch = null, lookTouch = null, moveVec = {x:0,y:0};
+let tapInfo = null;
+addEventListener('touchstart', e => {
+  if(!intro.classList.contains('hidden')) return;
+  if(e.target.closest('select,a,button,#roomnav,#card')) return;   // UI first
+  for(const t of e.changedTouches){
+    if(t.clientX < innerWidth*0.45 && moveTouch === null){
+      moveTouch = {id:t.identifier, x:t.clientX, y:t.clientY};
+      stick.style.display = 'block';
+      stick.style.left = (t.clientX-55)+'px'; stick.style.top = (t.clientY-55)+'px';
+    } else if(lookTouch === null){
+      lookTouch = {id:t.identifier, x:t.clientX, y:t.clientY};
+      tapInfo = {x:t.clientX, y:t.clientY, t:Date.now()};
+    }
+  }
+}, {passive:true});
+addEventListener('touchmove', e => {
+  for(const t of e.changedTouches){
+    if(moveTouch && t.identifier === moveTouch.id){
+      let dx = (t.clientX - moveTouch.x)/45, dy = (t.clientY - moveTouch.y)/45;
+      const m = Math.hypot(dx,dy); if(m > 1){ dx/=m; dy/=m; }
+      moveVec = {x:dx, y:dy};
+      stick.querySelector('i').style.transform = `translate(${dx*30}px,${dy*30}px)`;
+    } else if(lookTouch && t.identifier === lookTouch.id){
+      yaw   -= (t.clientX - lookTouch.x) * 0.005;
+      pitch -= (t.clientY - lookTouch.y) * 0.005;
+      pitch = Math.max(-1.35, Math.min(1.35, pitch));
+      lookTouch.x = t.clientX; lookTouch.y = t.clientY;
+      if(tapInfo && Math.hypot(t.clientX-tapInfo.x, t.clientY-tapInfo.y) > 12) tapInfo = null;
+    }
+  }
+}, {passive:true});
+addEventListener('touchend', e => {
+  for(const t of e.changedTouches){
+    if(moveTouch && t.identifier === moveTouch.id){ moveTouch = null; moveVec = {x:0,y:0}; stick.style.display='none'; }
+    if(lookTouch && t.identifier === lookTouch.id){
+      if(tapInfo && Date.now() - tapInfo.t < 350){
+        const ndc = new THREE.Vector2(tapInfo.x/innerWidth*2-1, -(tapInfo.y/innerHeight)*2+1);
+        const hit = pick(ndc);
+        if(hit) startFocus(hit.object.userData.item);
+        else if(focusItem) endFocus();
+      }
+      lookTouch = null; tapInfo = null;
+    }
+  }
+});
+
+/* ============================== picking / card ========================== */
+const ray = new THREE.Raycaster();
+ray.far = 60;
+function pick(ndc){
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(raycastTargets, false);
+  return hits.length ? hits[0] : null;
+}
+
+const card = document.getElementById('card');
+const cardEls = {
+  num: card.querySelector('.num'),
+  sold: card.querySelector('.soldb'), title: card.querySelector('h3'),
+  sub: card.querySelector('.sub'), price: card.querySelector('.price'),
+  note: card.querySelector('.note'), soldinfo: card.querySelector('.soldinfo'),
+};
+let cardItem = null, hoverRec = null;
+const fmt = n => n.toLocaleString('pl-PL');
+
+function fillCard(it){
+  cardEls.num.textContent = `№ ${String(it.n).padStart(3,'0')} · ${it.cat}`;
+  cardEls.sold.hidden = !it.sold;
+  cardEls.title.textContent = it.title;
+  const dims = it.measured ? `${it.w} × ${it.h} cm` : `ok. ${Math.round(it.w)} × ${Math.round(it.h)} cm`;
+  cardEls.sub.textContent = [it.year, dims, it.support].filter(Boolean).join(' · ');
+  cardEls.price.innerHTML = `Estymacja: <b>${fmt(it.plnLo)} – ${fmt(it.plnHi)} zł</b>`;
+  cardEls.note.hidden = !it.note; if(it.note) cardEls.note.textContent = it.note;
+  cardEls.soldinfo.hidden = !it.sold; if(it.sold) cardEls.soldinfo.textContent = it.soldInfo || '';
+}
+
+function showCardFor(it, rec){
+  if(cardItem !== it){ fillCard(it); cardItem = it; }
+  if(isTouch){ card.classList.add('sheet', 'show'); return; }   // bottom sheet on touch
+  // project painting top edge to screen
+  const p = rec.placement;
+  const v = new THREE.Vector3(p.cx, p.cy + p.h/2 + 0.12, p.cz).project(camera);
+  let sx = (v.x*0.5 + 0.5) * innerWidth, sy = (-v.y*0.5 + 0.5) * innerHeight;
+  const W = card.offsetWidth || 320, H = card.offsetHeight || 170;
+  sx = Math.max(14, Math.min(innerWidth - W - 14, sx - W/2));
+  sy = Math.max(14, Math.min(innerHeight - H - 14, sy - H - 10));
+  card.style.left = sx + 'px'; card.style.top = sy + 'px';
+  card.classList.add('show');
+}
+function hideCard(){ card.classList.remove('show'); cardItem = null; }
+
+/* focus (walk-up) mode */
+function startFocus(it){
+  const rec = itemMeshes.get(it.n); if(!rec) return;
+  const p = rec.placement;
+  const nrm = new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0), p.rotY);
+  const dist = Math.max(1.35, Math.min(4, Math.max(p.w, p.h)*1.15 + 0.75));
+  const target = new THREE.Vector3(p.cx, p.cy, p.cz).addScaledVector(nrm, dist);
+  const from = camera.position.clone();
+  const fromYaw = yaw, fromPitch = pitch;
+  const toYaw = Math.atan2(nrm.x, nrm.z);
+  let dYaw = toYaw - fromYaw; while(dYaw > Math.PI) dYaw -= 2*Math.PI; while(dYaw < -Math.PI) dYaw += 2*Math.PI;
+  const toPitch = Math.atan2(p.cy - EYE, dist) * 0.55;
+  focusItem = it;
+  focusAnim = {t:0, from, to:new THREE.Vector3(target.x, EYE, target.z), fromYaw, dYaw, fromPitch, toPitch};
+}
+function endFocus(silent){
+  focusItem = null; focusAnim = null;
+  if(!silent) hideCard();
+}
+canvas.addEventListener('mousedown', e => {
+  if(isTouch || !locked) return;
+  const hit = pick(new THREE.Vector2(0,0));
+  if(hit && hit.distance < 12){
+    if(focusItem === hit.object.userData.item) endFocus();
+    else startFocus(hit.object.userData.item);
+  } else if(focusItem) endFocus();
+});
+addEventListener('keydown', e => { if(e.code === 'Escape' && focusItem) endFocus(); });
+
+/* ============================== HUD ===================================== */
+const roomsel = document.getElementById('roomsel');
+rooms.forEach((r, i) => {
+  const o = document.createElement('option');
+  o.value = i;
+  o.textContent = r.lobby ? 'Wejście' : `Sala ${ROMAN[i-1]} — ${r.name}`;
+  roomsel.appendChild(o);
+});
+roomsel.addEventListener('change', () => { if(+roomsel.value > 0) teleport(+roomsel.value); else { camera.position.set(2.2, EYE, 0); yaw=-Math.PI/2; pitch=0; } roomsel.blur(); });
+
+const roomtag = document.getElementById('roomtag');
+const hint = document.getElementById('hint');
+let hintTimer = setTimeout(() => hint.classList.add('hidden'), 14000);
+function flashHint(msg){
+  hint.textContent = msg; hint.classList.remove('hidden');
+  clearTimeout(hintTimer); hintTimer = setTimeout(() => hint.classList.add('hidden'), 3200);
+}
+
+/* ?sala=N deep link from the landing page */
+{
+  const s = +(new URLSearchParams(location.search).get('sala') || 0);
+  if(s >= 1 && s <= 9) teleport(s);
+}
+
+/* ============================== main loop =============================== */
+const clock = new THREE.Clock();
+let lastRoomIdx = -1;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if(focusAnim){
+    focusAnim.t = Math.min(1, focusAnim.t + dt/0.75);
+    const e = 1 - Math.pow(1 - focusAnim.t, 3);
+    camera.position.lerpVectors(focusAnim.from, focusAnim.to, e);
+    yaw = focusAnim.fromYaw + focusAnim.dYaw * e;
+    pitch = focusAnim.fromPitch + (focusAnim.toPitch - focusAnim.fromPitch) * e;
+    if(focusAnim.t >= 1) focusAnim = null;
+  } else if(!focusItem){
+    if(keys['KeyQ']) yaw += 2.1*dt;
+    if(keys['KeyE']) yaw -= 2.1*dt;
+    const run = keys['ShiftLeft'] || keys['ShiftRight'];
+    const sp = run ? 5.6 : 3.1;
+    let fw = (keys['KeyW']||keys['ArrowUp']?1:0) - (keys['KeyS']||keys['ArrowDown']?1:0);
+    let st = (keys['KeyD']||keys['ArrowRight']?1:0) - (keys['KeyA']||keys['ArrowLeft']?1:0);
+    fw += -moveVec.y; st += moveVec.x;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    const rx = Math.cos(yaw),  rz = -Math.sin(yaw);
+    const ax = fx*fw + rx*st, az = fz*fw + rz*st;
+    const al = Math.hypot(ax, az) || 1;
+    vel.x += (ax/al) * sp * dt * 10;
+    vel.z += (az/al) * sp * dt * 10;
+    vel.multiplyScalar(Math.max(0, 1 - dt*9));
+    const vl = Math.hypot(vel.x, vel.z);
+    if(vl > sp){ vel.x *= sp/vl; vel.z *= sp/vl; }
+    let nx = camera.position.x + vel.x*dt, nz = camera.position.z + vel.z*dt;
+    [nx, nz] = collide(nx, nz);
+    camera.position.set(nx, EYE, nz);
+  }
+  camera.rotation.set(pitch, yaw, 0);
+
+  /* hover pick */
+  let hit = null;
+  if(intro.classList.contains('hidden')){
+    if(focusItem){
+      const rec = itemMeshes.get(focusItem.n);
+      showCardFor(focusItem, rec);
+    } else {
+      hit = pick(new THREE.Vector2(0,0));
+      if(hit && hit.distance < 7){
+        const it = hit.object.userData.item;
+        const rec = itemMeshes.get(it.n);
+        showCardFor(it, rec);
+      } else { hideCard(); }
+    }
+  }
+
+  /* room tag */
+  const rx2 = camera.position.x;
+  const ri = rooms.findIndex(r => rx2 >= r.x0 - WALL_T && rx2 < r.x1);
+  if(ri !== lastRoomIdx && ri >= 0){
+    lastRoomIdx = ri;
+    roomtag.textContent = rooms[ri].lobby ? '' : `Sala ${ROMAN[ri-1]} · ${rooms[ri].name}`;
+    roomsel.value = ri;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+/* debug/automation hooks */
+window.__gallery = {
+  camera, rooms, placements, renderer,
+  get yaw(){ return yaw; }, get moveVec(){ return moveVec; }, get focusItem(){ return focusItem; },
+  look(y, p){ yaw = y; pitch = p ?? 0; },
+  goto(x, z, y, p){ camera.position.set(x, EYE, z); if(y !== undefined) yaw = y; if(p !== undefined) pitch = p; },
+  focus(n){ const it = KOSNO.items.find(i => i.n === n); if(it) startFocus(it); },
+};
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
