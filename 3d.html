@@ -48,6 +48,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--
   border:1px solid var(--line);border-radius:999px;padding:8px 16px}
 .optchk input{accent-color:var(--amber);width:15px;height:15px;margin:0;cursor:pointer}
 #keyicon{position:absolute;bottom:44px;left:20px;display:none;color:#6fa8e8;filter:drop-shadow(0 0 6px rgba(80,140,230,.6))}
+#okeyicon{position:absolute;bottom:44px;left:52px;display:none;color:#e8a05a;filter:drop-shadow(0 0 6px rgba(230,150,60,.6))}
 @media (hover:hover){ .only-touch{display:none} }
 @media (hover:none){ .only-desktop{display:none} }
 @media (max-width:760px){
@@ -110,6 +111,12 @@ body.locked #cross{opacity:.9}
   background:rgba(34,27,22,.3);display:none;pointer-events:none}
 #stick i{position:absolute;top:50%;left:50%;width:46px;height:46px;margin:-23px;border-radius:50%;
   background:rgba(231,214,189,.3);backdrop-filter:blur(2px)}
+#jumpbtn{position:fixed;z-index:26;right:18px;bottom:calc(84px + env(safe-area-inset-bottom));
+  width:58px;height:58px;border-radius:50%;border:1.5px solid rgba(231,214,189,.35);
+  background:rgba(34,27,22,.55);color:var(--ink);display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);touch-action:manipulation;padding:0}
+#jumpbtn:active{background:rgba(224,160,80,.4)}
+@media (hover:none){ #jumpbtn{display:flex} }
 @media (hover:none){ #hint{display:none} }
 #card.sheet{left:12px !important;right:12px;top:auto !important;
   bottom:calc(14px + env(safe-area-inset-bottom));width:auto;max-width:none}
@@ -127,6 +134,7 @@ body.locked #cross{opacity:.9}
   <div id="roomnav"><select id="roomsel" title="Przejdź do sali"></select></div>
   <div id="roomtag"></div>
   <div id="keyicon"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="4.5"/><path d="M12.5 12.5 21 21M18 18l3-3M15.5 15.5l3-3"/></svg></div>
+  <div id="okeyicon"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="4.5"/><path d="M12.5 12.5 21 21M18 18l3-3M15.5 15.5l3-3"/></svg></div>
   <div id="hint"></div>
   <div id="cross"></div>
 </div>
@@ -141,6 +149,7 @@ body.locked #cross{opacity:.9}
 </div>
 
 <div id="stick"><i></i></div>
+<button id="jumpbtn" aria-label="Skok / Jump"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V6"/><path d="m6 12 6-6 6 6"/></svg></button>
 
 <div id="intro">
   <div class="ibox">
@@ -677,8 +686,8 @@ for(let i=1;i<rooms.length;i++)
   boundaryWall(rooms[i].x0 - WALL_T, true, styleOf(rooms[i-1]).wall, styleOf(rooms[i]).wall);
 /* ---------- secret passage & hidden room (painting № 095) ---------- */
 const SECRET_WALL = '#2c3152';
-let secretOpen = false, hasKey = false, plugAnim = null;
-let plugMesh, plugWall, keyGroup;
+let secretOpen = false, hasKey = false, hasOrangeKey = false, plugAnim = null;
+let plugMesh, plugWall, keyGroup, okeyGroup;
 {
   const lastWall = styleOf(rooms[rooms.length-1]).wall;
   const x = END_X - WALL_T, T2 = WALL_T/2;
@@ -738,6 +747,14 @@ let plugMesh, plugWall, keyGroup;
   keyGroup.position.set(rooms[1].x1 - 0.55, 0.05, ROOM_W/2 - 0.5);
   keyGroup.rotation.x = -Math.PI/2; keyGroup.rotation.z = 0.7;
   scene.add(keyGroup);
+
+  // orange key inside the secret room — it unlocks painting № 052
+  okeyGroup = keyGroup.clone();
+  const okm = new THREE.MeshLambertMaterial({color:0xe8862e, emissive:0x6b3208});
+  okeyGroup.traverse(o => { if(o.isMesh) o.material = okm; });
+  okeyGroup.position.set(sx0 + 4.6, 0.05, 2.1);
+  okeyGroup.rotation.z = -0.4;
+  scene.add(okeyGroup);
 }
 
 /* dark backdrop below the transparent floors — the "depth" of the polish */
@@ -991,114 +1008,314 @@ let inForest = false, forestBuilt = false, forestReturn = null, portalPos = null
 const forestWalls = [];
 const blinkers = [];
 const leaves = [];
+const birds = [];
+const sways = [];
 
+/* the painting's backlight: cream-yellow glow with a rose mist band at the horizon */
+function forestSkyTex(){
+  const [c,g] = cv(1024, 512);
+  const grd = g.createLinearGradient(0, 0, 0, 512);
+  grd.addColorStop(0, '#f7f0cb'); grd.addColorStop(.42, '#f4e6a8');
+  grd.addColorStop(.60, '#efd2b4'); grd.addColorStop(.70, '#eac3cd');
+  grd.addColorStop(.80, '#eed9a0'); grd.addColorStop(1, '#e5cc8a');
+  g.fillStyle = grd; g.fillRect(0, 0, 1024, 512);
+  for(let i=0;i<240;i++){   // golden shimmer
+    g.fillStyle = `hsla(${rnd(42,55)} ${rnd(50,80)}% ${rnd(76,90)}% / ${rnd(.05,.13)})`;
+    g.fillRect(rnd(0,1024), rnd(0,290), rnd(1,3), rnd(30,150));
+  }
+  for(let i=0;i<40;i++){    // distant trunk silhouettes rising out of the mist
+    g.fillStyle = `hsla(${rnd(48,80)} ${rnd(18,30)}% ${rnd(40,55)}% / ${rnd(.05,.13)})`;
+    g.fillRect(rnd(0,1024), rnd(230,300), rnd(3,10), 512);
+  }
+  return tex(c);
+}
+/* ground: dense golden strokes with pink / magenta / orange / olive undergrowth patches */
 function forestGroundTex(){
-  const [c,g] = cv(512, 512);
-  g.fillStyle = '#ddc178'; g.fillRect(0,0,512,512);
-  const cols = ['#e8d38b','#d9a75c','#e2b9d2','#c67ba8','#b9c07a','#e6928a','#f0e3a8','#a9a05a'];
-  for(let i=0;i<2600;i++){
-    g.fillStyle = cols[Math.floor(rnd(0,cols.length))];
-    g.globalAlpha = rnd(.25,.7);
-    g.fillRect(rnd(0,512), rnd(0,512), rnd(1.5,3.5), rnd(5,14));
+  const [c,g] = cv(1024, 1024);
+  g.fillStyle = '#dcc37e'; g.fillRect(0,0,1024,1024);
+  const base = ['#e8d38b','#d9a75c','#cbb268','#e6c37a','#b9a05a','#e0b87a'];
+  for(let i=0;i<5200;i++){
+    g.fillStyle = base[Math.floor(rnd(0,base.length))];
+    g.globalAlpha = rnd(.3,.7);
+    g.fillRect(rnd(0,1024), rnd(0,1024), rnd(1.5,3.5), rnd(6,16));
+  }
+  const pals = [
+    ['#e7bcd4','#d787b4','#c05d92','#eecfe0'],
+    ['#e6a15c','#d9784a','#e8c07a','#c96a3e'],
+    ['#a9b06a','#8a9a4e','#c7cf8a','#e3c93f'],
+  ];
+  for(let p=0;p<26;p++){   // flowering patches like the painting's undergrowth
+    const cx2 = rnd(60,964), cy2 = rnd(60,964), pr = rnd(30,90);
+    const cols = pals[Math.floor(rnd(0,pals.length))];
+    for(let i=0;i<150;i++){
+      const a = rnd(0,Math.PI*2), rr = Math.pow(Math.random(),.7)*pr;
+      g.fillStyle = cols[Math.floor(rnd(0,cols.length))];
+      g.globalAlpha = rnd(.5,.9);
+      g.fillRect(cx2+Math.cos(a)*rr, cy2+Math.sin(a)*rr, rnd(2,4), rnd(4,9));
+    }
   }
   g.globalAlpha = 1;
   return tex(c);
 }
-function forestBarkTex(){
+/* slender trunks — painterly weave, some with an owl face like the painting */
+function forestBarkTex(face){
   const [c,g] = cv(256, 512);
   g.fillStyle = '#6e6238'; g.fillRect(0,0,256,512);
-  for(let i=0;i<160;i++){
-    g.strokeStyle = `hsla(${rnd(38,75)} ${rnd(25,45)}% ${rnd(18,52)}% / ${rnd(.25,.6)})`;
+  for(let i=0;i<210;i++){
+    g.strokeStyle = `hsla(${rnd(38,80)} ${rnd(25,48)}% ${rnd(16,55)}% / ${rnd(.25,.6)})`;
     g.lineWidth = rnd(2,6);
-    const x = rnd(0,256); g.beginPath(); g.moveTo(x, -10);
+    const x = rnd(-8,264); g.beginPath(); g.moveTo(x, -10);
     g.bezierCurveTo(x+rnd(-14,14), 150, x+rnd(-14,14), 360, x+rnd(-10,10), 522);
     g.stroke();
   }
-  for(let i=0;i<7;i++){   // bark swirls that read as the painting's hidden faces
-    const kx = rnd(30,226), ky = rnd(40,470), kr = rnd(9,22);
-    g.strokeStyle = `hsla(35 30% ${rnd(14,26)}% / .55)`; g.lineWidth = 2.2;
-    g.beginPath(); g.ellipse(kx, ky, kr, kr*1.35, rnd(-.3,.3), 0, Math.PI*2); g.stroke();
-    g.beginPath(); g.ellipse(kx, ky, kr*.5, kr*.7, 0, 0, Math.PI*2); g.stroke();
-    g.fillStyle = 'rgba(30,22,10,.5)';
-    g.beginPath(); g.arc(kx-kr*.25, ky-kr*.2, 2.2, 0, 7); g.fill();
-    g.beginPath(); g.arc(kx+kr*.25, ky-kr*.2, 2.2, 0, 7); g.fill();
+  for(let i=0;i<6;i++){   // knot swirls
+    const kx = rnd(30,226), ky = rnd(40,470), kr = rnd(9,20);
+    for(let r2=kr; r2>3; r2-=rnd(4,6)){
+      g.strokeStyle = `hsla(${rnd(32,52)} ${rnd(28,50)}% ${r2%2 ? rnd(14,24) : rnd(46,68)}% / .6)`;
+      g.lineWidth = rnd(1.6,2.8);
+      g.beginPath(); g.ellipse(kx, ky, r2, r2*1.3, rnd(-.3,.3), 0, Math.PI*2); g.stroke();
+    }
+  }
+  if(face){   // the owl-faced tree from the top of the painting
+    const kx = 128, ky = 130;
+    for(const ex of [-26, 26]){
+      g.strokeStyle = 'hsla(40 40% 20% / .85)'; g.lineWidth = 3;
+      g.beginPath(); g.arc(kx+ex, ky, 21, 0, Math.PI*2); g.stroke();
+      g.fillStyle = 'hsla(48 60% 62% / .85)';
+      g.beginPath(); g.arc(kx+ex, ky, 14, 0, Math.PI*2); g.fill();
+      g.fillStyle = 'rgba(28,20,8,.95)';
+      g.beginPath(); g.arc(kx+ex, ky, 6, 0, Math.PI*2); g.fill();
+      g.fillStyle = 'rgba(245,230,190,.9)';
+      g.beginPath(); g.arc(kx+ex+2, ky-2, 2, 0, Math.PI*2); g.fill();
+    }
+    g.fillStyle = 'hsla(35 45% 22% / .8)';
+    g.beginPath(); g.moveTo(kx-7, ky+16); g.lineTo(kx+7, ky+16); g.lineTo(kx, ky+34); g.closePath(); g.fill();
   }
   return tex(c);
 }
-function forestVeilTex(){
+/* the great tree of faces — dense swirling knots, many with watching eyes */
+function heroBarkTex(){
+  const [c,g] = cv(512, 1024);
+  g.fillStyle = '#75683c'; g.fillRect(0,0,512,1024);
+  for(let i=0;i<380;i++){
+    g.strokeStyle = `hsla(${rnd(35,78)} ${rnd(25,50)}% ${rnd(16,55)}% / ${rnd(.25,.55)})`;
+    g.lineWidth = rnd(2,7);
+    const x = rnd(-12,524); g.beginPath(); g.moveTo(x, -10);
+    g.bezierCurveTo(x+rnd(-26,26), 300, x+rnd(-26,26), 700, x+rnd(-18,18), 1034);
+    g.stroke();
+  }
+  for(let i=0;i<20;i++){
+    const kx = rnd(40,472), ky = rnd(50,974), kr = rnd(16,40);
+    for(let r2=kr; r2>4; r2-=rnd(5,8)){
+      g.strokeStyle = `hsla(${rnd(30,55)} ${rnd(30,55)}% ${r2%2 ? rnd(15,25) : rnd(45,70)}% / ${rnd(.5,.8)})`;
+      g.lineWidth = rnd(2,3.5);
+      g.beginPath(); g.ellipse(kx, ky, r2, r2*rnd(1.15,1.5), rnd(-.25,.25), 0, Math.PI*2); g.stroke();
+    }
+    if(Math.random() < .75){   // eyes hidden in the bark
+      g.fillStyle = 'rgba(28,20,8,.85)';
+      g.beginPath(); g.arc(kx-kr*.3, ky-kr*.15, rnd(2.5,4), 0, 7); g.fill();
+      g.beginPath(); g.arc(kx+kr*.3, ky-kr*.15, rnd(2.5,4), 0, 7); g.fill();
+      g.fillStyle = 'rgba(240,220,170,.7)';
+      g.beginPath(); g.arc(kx-kr*.3+1, ky-kr*.15-1, 1.1, 0, 7); g.fill();
+      g.beginPath(); g.arc(kx+kr*.3+1, ky-kr*.15-1, 1.1, 0, 7); g.fill();
+    }
+    if(Math.random() < .5){    // rose rim-light, as in the painting
+      g.strokeStyle = `hsla(${rnd(320,345)} ${rnd(40,60)}% ${rnd(65,78)}% / .5)`;
+      g.lineWidth = 2.5;
+      g.beginPath(); g.ellipse(kx, ky, kr+3, (kr+3)*1.3, 0, -2.4, -0.7); g.stroke();
+    }
+  }
+  const t2 = tex(c); t2.repeat.set(2,1); return t2;
+}
+/* mosaic veils — each lady wears her own palette */
+function forestVeilTex(pal){
   const [c,g] = cv(256, 256);
-  g.fillStyle = '#d8b06a'; g.fillRect(0,0,256,256);
-  const cols = ['#e2703a','#d9486a','#4a86c8','#e3c93f','#7fae52','#c874b0','#e8e0c8'];
-  for(let i=0;i<900;i++){
-    g.fillStyle = cols[Math.floor(rnd(0,cols.length))];
-    g.globalAlpha = rnd(.5,.95);
-    const s2 = rnd(4,10);
-    g.fillRect(rnd(0,256-s2), rnd(0,256-s2), s2, s2);
+  g.fillStyle = pal.base; g.fillRect(0,0,256,256);
+  for(let i=0;i<1100;i++){
+    g.fillStyle = pal.cols[Math.floor(rnd(0,pal.cols.length))];
+    g.globalAlpha = rnd(.55,.95);
+    const s2 = rnd(5,12);
+    g.save(); g.translate(rnd(0,256), rnd(0,256)); g.rotate(rnd(0,3));
+    g.fillRect(-s2/2, -s2/4, s2, s2*rnd(.5,.9)); g.restore();
   }
   g.globalAlpha = 1;
   return tex(c);
+}
+/* dabbed flower bushes on transparent canvas (crossed billboards) */
+function forestBushTex(cols){
+  const [c,g] = cv(256, 256);
+  for(let i=0;i<190;i++){
+    const a = rnd(0, Math.PI*2), rr = Math.pow(Math.random(), .6)*100;
+    const x = 128 + Math.cos(a)*rr, y = 152 + Math.sin(a)*rr*0.72;
+    g.fillStyle = cols[Math.floor(rnd(0,cols.length))];
+    g.globalAlpha = rnd(.7,1);
+    g.save(); g.translate(x,y); g.rotate(rnd(0,3));
+    g.fillRect(-4,-2.6, rnd(5,10), rnd(4,7)); g.restore();
+  }
+  g.globalAlpha = 1;
+  const t2 = new THREE.CanvasTexture(c); t2.colorSpace = THREE.SRGBColorSpace;
+  return t2;
+}
+/* golden grass tufts */
+function forestTuftTex(){
+  const [c,g] = cv(128, 128);
+  const cols = ['#e3c93f','#d9a75c','#b9a05a','#e6c37a','#a9b06a'];
+  for(let i=0;i<26;i++){
+    g.strokeStyle = cols[Math.floor(rnd(0,cols.length))];
+    g.globalAlpha = rnd(.7,1);
+    g.lineWidth = rnd(2,4);
+    g.beginPath(); g.moveTo(64+rnd(-6,6), 128);
+    g.quadraticCurveTo(64+rnd(-30,30), rnd(50,90), 64+rnd(-52,52), rnd(6,50));
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+  const t2 = new THREE.CanvasTexture(c); t2.colorSpace = THREE.SRGBColorSpace;
+  return t2;
 }
 
 function buildForest(){
   forestBuilt = true;
-  const gt = forestGroundTex(); gt.repeat.set(9,9);
-  const gr = new THREE.Mesh(new THREE.PlaneGeometry(64, 64), new THREE.MeshLambertMaterial({map:gt}));
+  /* glowing backdrop cylinder — the painting's luminous sky */
+  const sky = new THREE.Mesh(new THREE.CylinderGeometry(43, 43, 34, 36, 1, true),
+    new THREE.MeshBasicMaterial({map: forestSkyTex(), side:THREE.BackSide, toneMapped:false, fog:false}));
+  sky.position.set(FC.x, 13, FC.z); scene.add(sky);
+
+  const gt = forestGroundTex(); gt.repeat.set(6,6);
+  const gr = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.MeshLambertMaterial({map:gt}));
   gr.rotation.x = -Math.PI/2; gr.position.set(FC.x, 0, FC.z); scene.add(gr);
   const B = 26;   // invisible bounds
   forestWalls.push({x0:FC.x-B-1, x1:FC.x+B+1, z0:FC.z+B, z1:FC.z+B+1});
   forestWalls.push({x0:FC.x-B-1, x1:FC.x+B+1, z0:FC.z-B-1, z1:FC.z-B});
   forestWalls.push({x0:FC.x-B-1, x1:FC.x-B, z0:FC.z-B, z1:FC.z+B});
   forestWalls.push({x0:FC.x+B, x1:FC.x+B+1, z0:FC.z-B, z1:FC.z+B});
-  // trees with painterly bark
-  const bark1 = forestBarkTex(), bark2 = forestBarkTex();
-  for(let i=0;i<34;i++){
+
+  /* the great tree of faces — centre of the composition, behind the ladies */
+  const HX = FC.x + 0.6, HZ = FC.z - 8.8;
+  const hero = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 1.15, 13, 14),
+    new THREE.MeshLambertMaterial({map: heroBarkTex()}));
+  hero.position.set(HX, 6.5, HZ); scene.add(hero);
+  forestWalls.push({x0:HX-1.15, x1:HX+1.15, z0:HZ-1.15, z1:HZ+1.15});
+  for(let i=0;i<4;i++){   // heavy limbs
+    const bl = rnd(2.6, 3.8);
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.22, bl, 7), hero.material);
+    const aa = i*1.55 + rnd(-.3,.3);
+    br.position.set(HX + Math.cos(aa)*1.3, rnd(7.5, 10.5), HZ + Math.sin(aa)*1.3);
+    br.rotation.z = Math.cos(aa)*rnd(.7, 1.0);
+    br.rotation.x = -Math.sin(aa)*rnd(.7, 1.0);
+    scene.add(br);
+  }
+
+  /* the grove — slender painterly trunks, a few with owl faces */
+  const barks = [forestBarkTex(false), forestBarkTex(false), forestBarkTex(true), forestBarkTex(false)];
+  for(let i=0;i<46;i++){
     let tx, tz, tries = 0;
     do { tx = FC.x + rnd(-24, 24); tz = FC.z + rnd(-24, 24); tries++; }
-    while(tries < 25 && (Math.hypot(tx-FC.x, tz-FC.z) < 4.5 || Math.hypot(tx-FC.x, tz-(FC.z+4.8)) < 2.8));
-    const h = rnd(5.5, 9), r = rnd(0.22, 0.45);
-    const tr = new THREE.Mesh(new THREE.CylinderGeometry(r*0.72, r, h, 8),
-      new THREE.MeshLambertMaterial({map: i%2 ? bark1 : bark2}));
+    while(tries < 30 && (Math.hypot(tx-FC.x, tz-FC.z) < 5.2 ||
+                         Math.hypot(tx-FC.x, tz-(FC.z+5.3)) < 3 ||
+                         Math.hypot(tx-HX, tz-HZ) < 3));
+    const h = rnd(6, 10.5), r = rnd(0.14, 0.34);
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(r*0.7, r, h, 8),
+      new THREE.MeshLambertMaterial({map: barks[i%4]}));
     tr.position.set(tx, h/2, tz); tr.rotation.z = rnd(-0.05, 0.05); scene.add(tr);
     forestWalls.push({x0:tx-r, x1:tx+r, z0:tz-r, z1:tz+r});
     for(let b=0;b<2;b++){   // bare branches
       const bh = rnd(1.4, 2.4);
-      const br = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, bh, 6), tr.material);
-      br.position.set(tx + rnd(-0.7,0.7), h*rnd(0.55,0.8), tz + rnd(-0.7,0.7));
+      const br = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.08, bh, 6), tr.material);
+      br.position.set(tx + rnd(-0.6,0.6), h*rnd(0.55,0.8), tz + rnd(-0.6,0.6));
       br.rotation.z = rnd(0.5, 1.1) * (Math.random() < .5 ? -1 : 1);
       br.rotation.x = rnd(-0.4, 0.4);
       scene.add(br);
     }
   }
-  // the three veiled ladies — with blinking eyes
-  const veil = forestVeilTex();
-  for(const [fx, fz, s] of [[FC.x-2.6, FC.z-2.2, 1.06],[FC.x+2.3, FC.z-3.0, 1.16],[FC.x-0.3, FC.z-5.4, 0.96]]){
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.9, 9),
-      new THREE.MeshLambertMaterial({map:veil}));
-    cone.position.set(fx, 0.95*s, fz); cone.scale.setScalar(s); scene.add(cone);
-    const face = new THREE.Mesh(new THREE.CircleGeometry(0.125*s, 16),
-      new THREE.MeshBasicMaterial({color:0xf3e2c4}));
-    face.position.set(fx, 1.42*s, fz + 0.335*s); scene.add(face);
+
+  /* flowering undergrowth: pink, orange and olive dabbed bushes + golden tufts */
+  const bushPals = [
+    ['#e7bcd4','#d787b4','#c05d92','#eecfe0','#e8e0c8'],
+    ['#e6a15c','#d9784a','#e8c07a','#c23b2e'],
+    ['#a9b06a','#8a9a4e','#c7cf8a','#e3c93f'],
+  ];
+  const bushTexes = bushPals.map(p => forestBushTex(p));
+  const addBush = (bx, bz, s) => {
+    const m = new THREE.MeshBasicMaterial({map: bushTexes[Math.floor(rnd(0,3))],
+      transparent:true, alphaTest:.3, side:THREE.DoubleSide});
+    for(const ry of [0, Math.PI/2]){
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.15*s, 0.85*s), m);
+      pl.position.set(bx, 0.33*s, bz); pl.rotation.y = ry + rnd(-.3,.3);
+      scene.add(pl);
+    }
+  };
+  addBush(FC.x-2.1, FC.z-1.3, 1.2); addBush(FC.x+2.9, FC.z-2.2, 1.3); addBush(FC.x-1.1, FC.z-5.5, 0.95);
+  for(let i=0;i<20;i++){
+    const a = rnd(0, Math.PI*2), rr = rnd(5, 22);
+    addBush(FC.x + Math.cos(a)*rr, FC.z + Math.sin(a)*rr, rnd(.7, 1.5));
+  }
+  const tuftT = forestTuftTex();
+  for(let i=0;i<26;i++){
+    const a = rnd(0, Math.PI*2), rr = rnd(2.5, 23);
+    const m = new THREE.MeshBasicMaterial({map:tuftT, transparent:true, alphaTest:.3, side:THREE.DoubleSide});
+    for(const ry of [0, Math.PI/2]){
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), m);
+      pl.position.set(FC.x + Math.cos(a)*rr, 0.18, FC.z + Math.sin(a)*rr);
+      pl.rotation.y = ry + rnd(-.4,.4);
+      scene.add(pl);
+    }
+  }
+
+  /* the three veiled ladies — each in her own mosaic palette, with blinking eyes */
+  const pals = [
+    {base:'#cfe0e8', cols:['#4a86c8','#d9486a','#e3c93f','#e8e0c8','#c23b2e','#7fae52']},   // the blue one
+    {base:'#e8c07a', cols:['#e2703a','#c23b2e','#e3c93f','#d9a75c','#d9486a','#f0e3c8']},   // the amber one
+    {base:'#d8c8e0', cols:['#c874b0','#7fae52','#4a86c8','#e8e0c8','#e2703a']},             // the violet one
+  ];
+  [[FC.x-2.7, FC.z-2.3, 1.05],[FC.x+2.4, FC.z-3.3, 1.18],[FC.x-0.5, FC.z-6.2, 0.92]].forEach(([fx, fz, s], fi) => {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.62, 2.05, 10),
+      new THREE.MeshLambertMaterial({map: forestVeilTex(pals[fi])}));
+    cone.position.set(fx, 1.02*s, fz); cone.scale.setScalar(s);
+    scene.add(cone); sways.push({m:cone, ph: fi*2.1, y: 1.02*s});
+    const hair = new THREE.Mesh(new THREE.CircleGeometry(0.145*s, 14),
+      new THREE.MeshBasicMaterial({color:0xd08a4a}));
+    hair.position.set(fx, 1.52*s, fz + 0.315*s); scene.add(hair);
+    const face = new THREE.Mesh(new THREE.CircleGeometry(0.115*s, 16),
+      new THREE.MeshBasicMaterial({color:0xf3e0c0}));
+    face.position.set(fx, 1.46*s, fz + 0.33*s); scene.add(face);
     const eyes = new THREE.Group();
-    for(const ex of [-0.048, 0.048]){
-      const w = new THREE.Mesh(new THREE.CircleGeometry(0.023, 10), new THREE.MeshBasicMaterial({color:0xfffdf4}));
+    for(const ex of [-0.045, 0.045]){
+      const w = new THREE.Mesh(new THREE.CircleGeometry(0.022, 10), new THREE.MeshBasicMaterial({color:0xfffdf4}));
       w.position.set(ex*s, 0.012, 0.002);
-      const pu = new THREE.Mesh(new THREE.CircleGeometry(0.011, 8), new THREE.MeshBasicMaterial({color:0x2a2118}));
+      const pu = new THREE.Mesh(new THREE.CircleGeometry(0.0105, 8), new THREE.MeshBasicMaterial({color:0x2a2118}));
       pu.position.set(ex*s, 0.012, 0.004);
       eyes.add(w, pu);
     }
-    eyes.position.set(fx, 1.42*s, fz + 0.336*s); scene.add(eyes);
+    eyes.position.set(fx, 1.475*s, fz + 0.335*s); scene.add(eyes);
+    const mouth = new THREE.Mesh(new THREE.PlaneGeometry(0.034*s, 0.008),
+      new THREE.MeshBasicMaterial({color:0xa8604a}));
+    mouth.position.set(fx, 1.415*s, fz + 0.336*s); scene.add(mouth);
     blinkers.push({eyes, next: rnd(2, 6)});
     forestWalls.push({x0:fx-0.5, x1:fx+0.5, z0:fz-0.5, z1:fz+0.5});
+  });
+
+  /* small dark birds circling between the trunks */
+  for(let i=0;i<6;i++){
+    const b = new THREE.Group();
+    const wm = new THREE.MeshBasicMaterial({color:0x4a3a28, side:THREE.DoubleSide});
+    const w1 = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.05), wm);
+    const w2 = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.05), wm);
+    w1.position.x = -0.08; w2.position.x = 0.08;
+    w1.rotation.x = w2.rotation.x = -Math.PI/2;
+    b.add(w1, w2); scene.add(b);
+    birds.push({g:b, w1, w2, r: rnd(6,15), h: rnd(3,5.5), sp: rnd(.15,.3)*(Math.random()<.5?-1:1), ph: rnd(0,6)});
   }
-  // falling leaves
-  for(let i=0;i<26;i++){
-    const lf = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.08),
-      new THREE.MeshBasicMaterial({color: i%3 ? 0xd8722e : 0xc23b2e, side:THREE.DoubleSide}));
-    lf.position.set(FC.x + rnd(-16,16), rnd(1.5, 7), FC.z + rnd(-16,16));
+
+  /* falling maple leaves */
+  for(let i=0;i<40;i++){
+    const lf = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.1),
+      new THREE.MeshBasicMaterial({color: [0xd8722e, 0xc23b2e, 0xe3a13f][i%3], side:THREE.DoubleSide}));
+    lf.position.set(FC.x + rnd(-18,18), rnd(1.5, 8), FC.z + rnd(-18,18));
     lf.rotation.set(rnd(0,3), rnd(0,3), rnd(0,3));
     scene.add(lf); leaves.push(lf);
   }
-  // the way back: painting 52 itself, floating in its frame
+
+  /* the way back: painting 52 itself, floating in its frame */
   const pf = new THREE.Mesh(new THREE.BoxGeometry(1.34, 1.72, 0.07), frameMat2);
   pf.position.set(FC.x, 1.55, FC.z + 5.3); scene.add(pf);
   const pm = new THREE.MeshBasicMaterial({color:0xcfc6b5, toneMapped:false});
@@ -1118,8 +1335,8 @@ function enterForest(){
   forestReturn = {pos: camera.position.clone(), yaw, pitch};
   endFocus(true); hideCard();
   inForest = true; jumpY = 0; vy = 0;
-  scene.background = new THREE.Color(0xf2e8bd);
-  scene.fog = new THREE.Fog(0xf2e8bd, 8, 42);
+  scene.background = new THREE.Color(0xf4ecc4);
+  scene.fog = new THREE.Fog(0xf4ecc4, 13, 55);   // soft glow — the backdrop shines through
   camera.position.set(FC.x, EYE, FC.z + 3.4);
   yaw = 0; pitch = 0;   // facing the three ladies
   flashHint(T('forestName'));
@@ -1141,6 +1358,11 @@ const keys = {};
 const vel = new THREE.Vector3();
 let locked = false, focusItem = null, focusAnim = null;
 let jumpY = 0, vy = 0;   // jump physics
+function doJump(){
+  if(intro.classList.contains('hidden') && !focusItem && jumpY === 0 && vy === 0) vy = 4.6;
+}
+document.getElementById('jumpbtn').addEventListener('touchstart', doJump, {passive:true});
+document.getElementById('jumpbtn').addEventListener('click', doJump);
 
 addEventListener('keydown', e => {
   keys[e.code] = true;
@@ -1148,9 +1370,7 @@ addEventListener('keydown', e => {
     const i = +e.code.slice(5);
     if(i >= 1 && i <= 9) teleport(i);
   }
-  if(e.code === 'Space' && intro.classList.contains('hidden') && !focusItem && jumpY === 0 && vy === 0){
-    vy = 4.6;   // jump
-  }
+  if(e.code === 'Space') doJump();
   if(e.code === 'KeyN' && intro.classList.contains('hidden') && !inForest){
     // cycle through paintings: nearest first, then next along the visitor route
     const pubs = placements.filter(p => !p.secret || secretOpen);
@@ -1263,7 +1483,10 @@ addEventListener('touchend', e => {
         const hit = pick(ndc);
         if(hit){
           const itm = hit.object.userData.item;
-          if(focusItem === itm && itm.n === 52) enterForest();   // step into "Trzy Panie"
+          if(focusItem === itm && itm.n === 52){   // step into "Trzy Panie" — with the orange key
+            if(hasOrangeKey) enterForest();
+            else flashHint(T('locked52'));
+          }
           else startFocus(itm);
         }
         else if(focusItem) endFocus();
@@ -1346,7 +1569,10 @@ canvas.addEventListener('mousedown', e => {
   const hit = pick(new THREE.Vector2(0,0));
   if(hit && hit.distance < 12){
     if(focusItem === hit.object.userData.item){
-      if(focusItem.n === 52) enterForest();   // step into "Trzy Panie"
+      if(focusItem.n === 52){   // step into "Trzy Panie" — with the orange key
+        if(hasOrangeKey) enterForest();
+        else { flashHint(T('locked52')); endFocus(); }
+      }
       else endFocus();
     }
     else startFocus(hit.object.userData.item);
@@ -1453,6 +1679,15 @@ function animate(){
       flashHint(T('keyFound'));
     }
   }
+  /* orange key waits in the secret room */
+  if(secretOpen && !hasOrangeKey && okeyGroup.visible){
+    okeyGroup.rotation.z += dt*0.8;
+    if(Math.hypot(camera.position.x - okeyGroup.position.x, camera.position.z - okeyGroup.position.z) < 0.85){
+      hasOrangeKey = true; okeyGroup.visible = false;
+      document.getElementById('okeyicon').style.display = 'block';
+      flashHint(T('okeyFound'));
+    }
+  }
   /* jump by the end wall with the key → the plug slides into the floor */
   if(hasKey && !secretOpen && jumpY > 0.04 &&
      camera.position.x > END_X - 2.3 && camera.position.x < END_X && Math.abs(camera.position.z) < 2.4){
@@ -1466,7 +1701,7 @@ function animate(){
     plugMesh.position.y = DOOR_H/2 - (DOOR_H + 0.06)*e2;
     if(plugAnim >= 1) plugAnim = null;
   }
-  /* forest life: blinking eyes, falling leaves, the way back */
+  /* forest life: blinking eyes, swaying veils, circling birds, falling leaves */
   if(inForest){
     const now = clock.elapsedTime;
     for(const b of blinkers){
@@ -1475,6 +1710,16 @@ function animate(){
         b.eyes.scale.y = ph < 0.11 ? Math.max(0.06, 1 - ph/0.11) : Math.min(1, (ph - 0.11)/0.11);
         if(ph > 0.24){ b.eyes.scale.y = 1; b.next = now + 2.5 + Math.random()*4.5; }
       }
+    }
+    for(const s2 of sways) s2.m.rotation.z = Math.sin(now*0.55 + s2.ph)*0.02;
+    for(const b of birds){
+      const a = now*b.sp + b.ph;
+      b.g.position.set(FC.x + Math.cos(a)*b.r,
+                       b.h + Math.sin(now*1.3 + b.ph)*0.35,
+                       FC.z - 4 + Math.sin(a)*b.r*0.7);
+      b.g.rotation.y = -a;
+      const fl = Math.sin(now*9 + b.ph)*0.55;
+      b.w1.rotation.z = fl; b.w2.rotation.z = -fl;
     }
     for(const lf of leaves){
       lf.position.y -= dt*0.4;
@@ -1506,14 +1751,21 @@ animate();
 
 /* debug/automation hooks */
 window.__gallery = {
-  camera, rooms, placements, renderer,
+  camera, rooms, placements, renderer, scene,
   get yaw(){ return yaw; }, get moveVec(){ return moveVec; }, get focusItem(){ return focusItem; },
-  get state(){ return {hasKey, secretOpen, inForest, jumpY, lang}; },
+  get state(){ return {hasKey, hasOrangeKey, secretOpen, inForest, jumpY, lang}; },
+  get touchState(){ return {moveTouch: !!moveTouch, lookTouch: !!lookTouch, tapInfo: !!tapInfo}; },
+  tap(x, y){
+    const ndc = new THREE.Vector2((x ?? innerWidth/2)/innerWidth*2-1, -((y ?? innerHeight/2)/innerHeight)*2+1);
+    const hit = pick(ndc);
+    return hit ? {d: +hit.distance.toFixed(2), n: hit.object.userData?.item?.n ?? null} : null;
+  },
   look(y, p){ yaw = y; pitch = p ?? 0; },
   goto(x, z, y, p){ camera.position.set(x, EYE, z); if(y !== undefined) yaw = y; if(p !== undefined) pitch = p; },
   focus(n){ const it = KOSNO.items.find(i => i.n === n); if(it) startFocus(it); },
   jump(){ if(jumpY === 0 && vy === 0) vy = 4.6; },
   giveKey(){ hasKey = true; keyGroup.visible = false; document.getElementById('keyicon').style.display = 'block'; },
+  giveOrangeKey(){ hasOrangeKey = true; okeyGroup.visible = false; document.getElementById('okeyicon').style.display = 'block'; },
   forest(){ enterForest(); },
   leaveForest(){ exitForest(); },
 };
