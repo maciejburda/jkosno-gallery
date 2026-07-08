@@ -36,9 +36,18 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--
 .icard p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.65}
 .icard b{color:var(--ink);font-weight:600;border:1px solid var(--line);border-radius:5px;padding:0 6px;margin:0 1px;font-size:11.5px;white-space:nowrap}
 #intro .enter{font-size:16px;font-weight:600;border:0;border-radius:999px;padding:15px 44px;cursor:pointer;
-  color:#241a0a;background:linear-gradient(140deg,#eabb74,var(--amber));margin-top:24px;font-family:var(--sans);
+  color:#241a0a;background:linear-gradient(140deg,#eabb74,var(--amber));margin-top:20px;font-family:var(--sans);
   box-shadow:0 10px 30px rgba(224,160,80,.3);transition:transform .15s, box-shadow .25s}
 #intro .enter:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(224,160,80,.45)}
+.opts{display:flex;align-items:center;gap:20px;margin-top:20px;flex-wrap:wrap;justify-content:center}
+.lang-sw{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.lang-sw button{background:none;border:0;color:var(--muted);font-family:var(--sans);font-size:12px;
+  font-weight:600;letter-spacing:.08em;padding:8px 15px;cursor:pointer}
+.lang-sw button.on{background:rgba(224,160,80,.22);color:var(--ink)}
+.optchk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:pointer;
+  border:1px solid var(--line);border-radius:999px;padding:8px 16px}
+.optchk input{accent-color:var(--amber);width:15px;height:15px;margin:0;cursor:pointer}
+#keyicon{position:absolute;bottom:44px;left:20px;display:none;color:#6fa8e8;filter:drop-shadow(0 0 6px rgba(80,140,230,.6))}
 @media (hover:hover){ .only-touch{display:none} }
 @media (hover:none){ .only-desktop{display:none} }
 @media (max-width:760px){
@@ -114,10 +123,11 @@ body.locked #cross{opacity:.9}
 <div id="vig"></div>
 
 <div id="hud">
-  <a id="brand" href="./" title="Wróć na stronę główną"><b>Jan Kosno</b><span>1913–1996 · galeria 3D</span><span class="back">← strona główna</span></a>
+  <a id="brand" href="./" title="Wróć na stronę główną"><b>Jan Kosno</b><span id="brand-sub">1913–1996 · galeria 3D</span><span class="back" id="brand-back">← strona główna</span></a>
   <div id="roomnav"><select id="roomsel" title="Przejdź do sali"></select></div>
   <div id="roomtag"></div>
-  <div id="hint">Poruszanie: <b>W A S D</b> · obrót: <b>Q</b> <b>E</b> · rozglądanie: mysz · najedź na obraz — szczegóły · <b>klik</b> = zbliżenie</div>
+  <div id="keyicon"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="4.5"/><path d="M12.5 12.5 21 21M18 18l3-3M15.5 15.5l3-3"/></svg></div>
+  <div id="hint"></div>
   <div id="cross"></div>
 </div>
 
@@ -134,52 +144,59 @@ body.locked #cross{opacity:.9}
 
 <div id="intro">
   <div class="ibox">
-    <div class="kicker">Wirtualna galeria</div>
+    <div class="kicker" id="in-kicker">Wirtualna galeria</div>
     <h1>Jan Kosno</h1>
-    <div class="sub">1913–1996 · 164 prace · 9 sal tematycznych</div>
-    <div class="howto">Jak zwiedzać</div>
+    <div class="sub" id="in-sub"></div>
+    <div class="howto" id="in-howto">Jak zwiedzać</div>
 
     <div class="cards only-desktop">
       <div class="icard">
         <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="16.5" y="1" width="13" height="13" rx="3"/><rect x="1" y="16" width="13" height="13" rx="3"/><rect x="16.5" y="16" width="13" height="13" rx="3"/><rect x="32" y="16" width="13" height="13" rx="3"/></svg></div>
-        <h4>Chodzenie</h4>
-        <p><b>W A S D</b> lub strzałki.<br><b>Shift</b> — szybszy krok.</p>
+        <h4 id="c1h">Chodzenie</h4>
+        <p id="c1p"><b>W A S D</b> lub strzałki.<br><b>Shift</b> — bieg, <b>Spacja</b> — skok.</p>
       </div>
       <div class="icard">
         <div class="ic"><svg width="22" height="34" viewBox="0 0 22 34" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="20" height="32" rx="10"/><line x1="11" y1="7" x2="11" y2="13"/></svg></div>
-        <h4>Rozglądanie</h4>
-        <p>Kliknij i poruszaj myszą.<br><b>Q</b> / <b>E</b> — obrót w poziomie.</p>
+        <h4 id="c2h">Rozglądanie</h4>
+        <p id="c2p">Kliknij i poruszaj myszą.<br><b>Q</b> / <b>E</b> — obrót w poziomie.</p>
       </div>
       <div class="icard">
         <div class="ic"><svg width="36" height="30" viewBox="0 0 36 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="34" height="28"/><rect x="6.5" y="6.5" width="23" height="17"/></svg></div>
-        <h4>Obrazy</h4>
-        <p>Spójrz na obraz — szczegóły i wycena. Klik — zbliżenie, <b>Esc</b> — powrót.</p>
+        <h4 id="c3h">Obrazy</h4>
+        <p id="c3p">Spójrz na obraz — szczegóły. Klik lub <b>N</b> — zbliżenie, <b>Esc</b> — powrót.</p>
       </div>
       <div class="icard">
         <div class="ic"><svg width="26" height="32" viewBox="0 0 26 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 31V1h24v30"/><path d="M7 31V8h12v23"/></svg></div>
-        <h4>Sale</h4>
-        <p>Klawisze <b>1</b>–<b>9</b> albo lista w prawym górnym rogu.</p>
+        <h4 id="c4h">Sale</h4>
+        <p id="c4p">Klawisze <b>1</b>–<b>9</b> albo lista w prawym górnym rogu.</p>
       </div>
     </div>
 
     <div class="cards only-touch">
       <div class="icard">
         <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="44" height="28" rx="5"/><circle cx="13.5" cy="15" r="7.5" stroke-dasharray="2.6 2.6"/><circle cx="13.5" cy="15" r="2.6" fill="currentColor" stroke="none"/></svg></div>
-        <div><h4>Chodzenie</h4>
-        <p>Przeciągnij palcem po <u>lewej</u> połowie ekranu — pojawi się joystick.</p></div>
+        <div><h4 id="t1h">Chodzenie</h4>
+        <p id="t1p">Przeciągnij palcem po <u>lewej</u> połowie ekranu — pojawi się joystick.</p></div>
       </div>
       <div class="icard">
         <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="44" height="28" rx="5"/><path d="M27 15h14"/><path d="M30 11.5 26.5 15l3.5 3.5"/><path d="M38 11.5 41.5 15 38 18.5"/></svg></div>
-        <div><h4>Rozglądanie</h4>
-        <p>Przeciągaj palcem po <u>prawej</u> połowie ekranu.</p></div>
+        <div><h4 id="t2h">Rozglądanie</h4>
+        <p id="t2p">Przeciągaj palcem po <u>prawej</u> połowie ekranu.</p></div>
       </div>
       <div class="icard">
         <div class="ic"><svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="16" cy="16" r="3.5" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="9" opacity=".55"/><circle cx="16" cy="16" r="14" opacity=".25"/></svg></div>
-        <div><h4>Obrazy i sale</h4>
-        <p>Dotknij obrazu — szczegóły i zbliżenie. Sale wybierzesz z listy u góry ekranu.</p></div>
+        <div><h4 id="t3h">Obrazy i sale</h4>
+        <p id="t3p">Dotknij obrazu — szczegóły i zbliżenie. Sale wybierzesz z listy u góry ekranu.</p></div>
       </div>
     </div>
 
+    <div class="opts">
+      <div class="lang-sw">
+        <button id="lang-pl" type="button">PL</button>
+        <button id="lang-en" type="button">EN</button>
+      </div>
+      <label class="optchk"><input type="checkbox" id="invy"><span id="invy-l">Odwrócona oś Y (mysz)</span></label>
+    </div>
     <button class="enter" id="enterbtn">Wejdź do galerii</button>
     <div id="loadbar"><i></i></div>
     <div id="loadpct">wczytywanie…</div>
@@ -190,6 +207,35 @@ body.locked #cross{opacity:.9}
 <script type="module">
 import * as THREE from './assets/three.module.js';
 import KOSNO from './assets/data.js';
+import {getLang, setLang, makeT, tGroup, tCat, tSup, tTitle} from './assets/i18n.js';
+
+/* ============================== language & options ===================== */
+const lang = getLang();
+const T = makeT(lang);
+const PUBN = KOSNO.items.filter(i => !i.secret).length;
+let INVY = localStorage.getItem('kosno-invy') === '1';
+document.documentElement.lang = lang;
+document.title = T('title3d');
+{
+  const S = (id, html) => { const e = document.getElementById(id); if(e) e.innerHTML = html; };
+  S('in-kicker', T('introKicker')); S('in-sub', T('introSub', {n: PUBN})); S('in-howto', T('howto'));
+  S('c1h', T('cWalkH')); S('c1p', T('cWalkP'));
+  S('c2h', T('cLookH')); S('c2p', T('cLookP'));
+  S('c3h', T('cArtH')); S('c3p', T('cArtP'));
+  S('c4h', T('cRoomsH')); S('c4p', T('cRoomsP'));
+  S('t1h', T('tWalkH')); S('t1p', T('tWalkP'));
+  S('t2h', T('tLookH')); S('t2p', T('tLookP'));
+  S('t3h', T('tArtH')); S('t3p', T('tArtP'));
+  S('invy-l', T('invertY')); S('enterbtn', T('enter'));
+  S('introback', T('back')); S('brand-sub', T('brand3dSub')); S('brand-back', T('backTop'));
+  S('hint', T('hint'));
+  document.getElementById('lang-' + lang).classList.add('on');
+  document.getElementById('lang-pl').addEventListener('click', () => { if(lang !== 'pl') setLang('pl'); });
+  document.getElementById('lang-en').addEventListener('click', () => { if(lang !== 'en') setLang('en'); });
+  const invy = document.getElementById('invy');
+  invy.checked = INVY;
+  invy.addEventListener('change', () => { INVY = invy.checked; localStorage.setItem('kosno-invy', INVY ? '1' : '0'); });
+}
 
 /* ============================== constants ============================== */
 const ROOM_W = 9;          // interior width (z)
@@ -478,7 +524,7 @@ function textTexture(lines, w=1024, h=256, opts={}){
 
 /* ============================== layout ================================== */
 /* group items by room, compute room lengths, painting placements */
-const roomsData = KOSNO.groups.map(g => ({name:g, items: KOSNO.items.filter(i => i.group === g)}));
+const roomsData = KOSNO.groups.map(g => ({name:g, items: KOSNO.items.filter(i => i.group === g && !i.secret)}));
 
 function unitW(it){ const w = it.w/100; return it.imgs.length > 1 ? w*2 + 0.06 : w; }
 
@@ -629,7 +675,70 @@ const FEATURE = '#2a211b';   // espresso feature wall behind the lobby title
 boundaryWall(-WALL_T, false, FEATURE);
 for(let i=1;i<rooms.length;i++)
   boundaryWall(rooms[i].x0 - WALL_T, true, styleOf(rooms[i-1]).wall, styleOf(rooms[i]).wall);
-boundaryWall(END_X - WALL_T, false, styleOf(rooms[rooms.length-1]).wall);
+/* ---------- secret passage & hidden room (painting № 095) ---------- */
+const SECRET_WALL = '#2c3152';
+let secretOpen = false, hasKey = false, plugAnim = null;
+let plugMesh, plugWall, keyGroup;
+{
+  const lastWall = styleOf(rooms[rooms.length-1]).wall;
+  const x = END_X - WALL_T, T2 = WALL_T/2;
+  const segW = (ROOM_W - DOOR_W)/2;
+  // the end wall looks solid, but its centre is a sliding plug
+  const seg = (zc, zl, h, y) => {
+    const w1 = new THREE.Mesh(new THREE.BoxGeometry(T2, h, zl), wallMat(lastWall, zl, h));
+    w1.position.set(x + T2/2, y, zc); scene.add(w1); addMirror(w1);
+    const w2 = new THREE.Mesh(new THREE.BoxGeometry(T2, h, zl), wallMat(SECRET_WALL, zl, h));
+    w2.position.set(x + WALL_T - T2/2, y, zc); scene.add(w2); addMirror(w2);
+  };
+  seg(-(DOOR_W/2 + segW/2), segW, WALL_H, WALL_H/2);
+  seg( (DOOR_W/2 + segW/2), segW, WALL_H, WALL_H/2);
+  seg(0, DOOR_W, WALL_H - DOOR_H, DOOR_H + (WALL_H - DOOR_H)/2);
+  walls.push({x0:x, x1:x+WALL_T, z0:-ROOM_W/2, z1:-DOOR_W/2});
+  walls.push({x0:x, x1:x+WALL_T, z0: DOOR_W/2, z1: ROOM_W/2});
+  plugMesh = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, DOOR_H, DOOR_W), wallMat(lastWall, DOOR_W, DOOR_H));
+  plugMesh.position.set(x + WALL_T/2, DOOR_H/2, 0); scene.add(plugMesh);
+  plugWall = {x0:x, x1:x+WALL_T, z0:-DOOR_W/2, z1:DOOR_W/2};
+  walls.push(plugWall);
+
+  // hidden room shell beyond the end wall
+  const sx0 = END_X, sx1 = END_X + 7, smid = (sx0 + sx1)/2, slen = sx1 - sx0;
+  const ft = chevronTex({hue:232, sat:18, light:24});
+  ft.repeat.set(slen/2.6, ROOM_W/2.6);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(slen, ROOM_W),
+    new THREE.MeshPhongMaterial({map:ft, specular:0x444a66, shininess:80}));
+  fl.rotation.x = -Math.PI/2; fl.position.set(smid, 0, 0); scene.add(fl);
+  const cl = new THREE.Mesh(new THREE.PlaneGeometry(slen, ROOM_W + 2*WALL_T),
+    new THREE.MeshLambertMaterial({color:0x232744}));
+  cl.rotation.x = Math.PI/2; cl.position.set(smid, WALL_H, 0); scene.add(cl);
+  for(const s of [-1, 1]){
+    const m = new THREE.Mesh(new THREE.BoxGeometry(slen, WALL_H, WALL_T), wallMat(SECRET_WALL, slen, WALL_H));
+    m.position.set(smid, WALL_H/2, s*(ROOM_W/2 + WALL_T/2)); scene.add(m);
+    walls.push({x0:sx0, x1:sx1, z0:s>0? ROOM_W/2 : -ROOM_W/2-WALL_T, z1:s>0? ROOM_W/2+WALL_T : -ROOM_W/2});
+  }
+  const fw = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, WALL_H, ROOM_W + 2*WALL_T),
+    wallMat(SECRET_WALL, ROOM_W, WALL_H));
+  fw.position.set(sx1 + WALL_T/2, WALL_H/2, 0); scene.add(fw);
+  walls.push({x0:sx1, x1:sx1+WALL_T, z0:-ROOM_W/2, z1:ROOM_W/2});
+  const pn = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.1), new THREE.MeshBasicMaterial({color:0xcfd8ff}));
+  pn.rotation.x = Math.PI/2; pn.position.set(smid, WALL_H - 0.01, 0); scene.add(pn);
+  // painting 95 hangs on the far wall, facing the entrance
+  const it95 = KOSNO.items.find(i => i.n === 95);
+  if(it95) placements.push({item:it95, cx:sx1, cy:HANG, cz:0, rotY:-Math.PI/2, w:it95.w/100, h:it95.h/100, secret:true});
+
+  // little blue key on the floor of Sala I, far right corner
+  keyGroup = new THREE.Group();
+  const km = new THREE.MeshLambertMaterial({color:0x3b82e6, emissive:0x0a2a66});
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.016, 10, 24), km);
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.024, 0.014), km);
+  shaft.position.x = 0.12;
+  const th1 = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.05, 0.014), km);
+  th1.position.set(0.17, -0.033, 0);
+  const th2 = th1.clone(); th2.position.x = 0.13;
+  keyGroup.add(ring, shaft, th1, th2);
+  keyGroup.position.set(rooms[1].x1 - 0.55, 0.05, ROOM_W/2 - 0.5);
+  keyGroup.rotation.x = -Math.PI/2; keyGroup.rotation.z = 0.7;
+  scene.add(keyGroup);
+}
 
 /* dark backdrop below the transparent floors — the "depth" of the polish */
 if(MIRRORS){
@@ -642,9 +751,9 @@ if(MIRRORS){
 rooms.forEach((r, i) => {
   if(r.lobby) return;
   const tex = textTexture([
-    {text:`SALA ${ROMAN[i-1]}`, font:'600 44px system-ui', ink:'#8a7a66', dy:6},
-    {text:r.name.toUpperCase(), font:'500 78px Georgia', dy:-2},
-    {text:`${roomsData[i-1].items.length} prac`, font:'400 36px system-ui', ink:'#8a7a66', dy:-8},
+    {text:`${T('room').toUpperCase()} ${ROMAN[i-1]}`, font:'600 44px system-ui', ink:'#8a7a66', dy:6},
+    {text:tGroup(lang, r.name).toUpperCase(), font:'500 78px Georgia', dy:-2},
+    {text:`${roomsData[i-1].items.length} ${T('plaqueWorks')}`, font:'400 36px system-ui', ink:'#8a7a66', dy:-8},
   ], 1024, 300, {bg:'#f4efe4', bar: styleOf(r).accent});
   const m = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.76),
     new THREE.MeshBasicMaterial({map:tex}));
@@ -657,7 +766,7 @@ rooms.forEach((r, i) => {
   const tex = textTexture([
     {text:'JAN KOSNO', font:'500 170px Georgia', ink:'#ecdfc6', dy:8},
     {text:'1913 – 1996', font:'400 56px Georgia', ink:'#a8917a'},
-    {text:'MALARSTWO · 164 PRACE · 9 SAL', font:'500 36px system-ui', ink:'#8d7a66', dy:-4},
+    {text:T('lobbyLine', {n: PUBN}), font:'500 36px system-ui', ink:'#8d7a66', dy:-4},
   ], 1600, 560, {bg:null, bar:'#b08d4f'});
   const m = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 5.4*560/1600),
     new THREE.MeshBasicMaterial({map:tex, transparent:true}));
@@ -683,7 +792,7 @@ rooms.forEach((r, i) => {
     });
     const cap = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.098),
       new THREE.MeshBasicMaterial({map: textTexture([
-        {text:'JAN KOSNO · AUTOPORTRET', font:'500 56px system-ui', dy:2},
+        {text:T('selfPortrait'), font:'500 56px system-ui', dy:2},
       ], 1024, 128, {bg:'#f4efe3'})}));
     cap.position.set(0, -ph/2 - 0.19, 0.024); pg.add(cap);
     if(MIRRORS){ const mg = pg.clone(); mg.scale.y = -1; mg.position.y = -pg.position.y; scene.add(mg); }
@@ -696,7 +805,7 @@ rooms.forEach((r, i) => {
     bg2.strokeStyle = 'rgba(70,54,38,.35)'; bg2.lineWidth = 4; bg2.strokeRect(14, 14, 996, 972);
     bg2.textAlign = 'left'; bg2.textBaseline = 'alphabetic';
     bg2.fillStyle = '#8a7a66'; bg2.font = '600 30px system-ui';
-    bg2.fillText('O  M A L A R Z U', 62, 86);
+    bg2.fillText(T('aboutPainter'), 62, 86);
     bg2.fillStyle = '#2f2519'; bg2.font = '500 84px Georgia';
     bg2.fillText('Jan Kosno', 58, 174);
     bg2.fillStyle = '#6f5f4c'; bg2.font = '400 40px Georgia';
@@ -705,10 +814,7 @@ rooms.forEach((r, i) => {
     bg2.fillStyle = '#3a2f22'; bg2.font = '400 33px system-ui';
     let yy = 320;
     for(const par of [
-      'Malarz i rysownik, związany z krakowskim i śląskim środowiskiem artystycznym oraz z Krakowską Grupą Twórczą ZPAP „Postawy”.',
-      'Na przełomie lat 60. i 70. pracował w Paryżu — powstały wówczas cykle znad Sekwany, z Marché aux Puces i widoki dachów miasta. Malował Wenecję, Tatry, polskie miasta i morze; obok pejzaży tworzył impresje, abstrakcje i sceny symboliczne.',
-      'Wystawę „Rysunek i malarstwo Jana Kosno” pokazała Galeria Extravagance w Zamku Sieleckim w Sosnowcu (2002).',
-      'Kolekcja obejmuje 164 prace w dziewięciu salach.',
+      T('bioPanel1'), T('bioPanel2'), T('bioPanel3'), T('bioPanel4', {n: PUBN}),
     ]) yy = wrapText(bg2, par, 60, yy, 900, 46) + 24;
     const bt = new THREE.CanvasTexture(bc);
     bt.colorSpace = THREE.SRGBColorSpace; bt.anisotropy = Math.min(8, MAXA);
@@ -838,7 +944,7 @@ function pumpSmall(){
 function updateLoadUI(){
   const pct = Math.round(100*loadedSmall/totalSmall);
   document.querySelector('#loadbar i').style.width = pct + '%';
-  document.getElementById('loadpct').textContent = pct >= 100 ? 'gotowe' : `wczytywanie obrazów… ${pct}%`;
+  document.getElementById('loadpct').textContent = pct >= 100 ? T('ready') : `${T('loading')} ${pct}%`;
 }
 pumpSmall();
 
@@ -879,12 +985,162 @@ setInterval(() => {
   }
 }, 700);
 
+/* ========== Easter egg: the forest inside painting № 052 ("Trzy Panie") ========== */
+const FC = new THREE.Vector3(60, 0, 400);      // forest centre, far away from the museum
+let inForest = false, forestBuilt = false, forestReturn = null, portalPos = null;
+const forestWalls = [];
+const blinkers = [];
+const leaves = [];
+
+function forestGroundTex(){
+  const [c,g] = cv(512, 512);
+  g.fillStyle = '#ddc178'; g.fillRect(0,0,512,512);
+  const cols = ['#e8d38b','#d9a75c','#e2b9d2','#c67ba8','#b9c07a','#e6928a','#f0e3a8','#a9a05a'];
+  for(let i=0;i<2600;i++){
+    g.fillStyle = cols[Math.floor(rnd(0,cols.length))];
+    g.globalAlpha = rnd(.25,.7);
+    g.fillRect(rnd(0,512), rnd(0,512), rnd(1.5,3.5), rnd(5,14));
+  }
+  g.globalAlpha = 1;
+  return tex(c);
+}
+function forestBarkTex(){
+  const [c,g] = cv(256, 512);
+  g.fillStyle = '#6e6238'; g.fillRect(0,0,256,512);
+  for(let i=0;i<160;i++){
+    g.strokeStyle = `hsla(${rnd(38,75)} ${rnd(25,45)}% ${rnd(18,52)}% / ${rnd(.25,.6)})`;
+    g.lineWidth = rnd(2,6);
+    const x = rnd(0,256); g.beginPath(); g.moveTo(x, -10);
+    g.bezierCurveTo(x+rnd(-14,14), 150, x+rnd(-14,14), 360, x+rnd(-10,10), 522);
+    g.stroke();
+  }
+  for(let i=0;i<7;i++){   // bark swirls that read as the painting's hidden faces
+    const kx = rnd(30,226), ky = rnd(40,470), kr = rnd(9,22);
+    g.strokeStyle = `hsla(35 30% ${rnd(14,26)}% / .55)`; g.lineWidth = 2.2;
+    g.beginPath(); g.ellipse(kx, ky, kr, kr*1.35, rnd(-.3,.3), 0, Math.PI*2); g.stroke();
+    g.beginPath(); g.ellipse(kx, ky, kr*.5, kr*.7, 0, 0, Math.PI*2); g.stroke();
+    g.fillStyle = 'rgba(30,22,10,.5)';
+    g.beginPath(); g.arc(kx-kr*.25, ky-kr*.2, 2.2, 0, 7); g.fill();
+    g.beginPath(); g.arc(kx+kr*.25, ky-kr*.2, 2.2, 0, 7); g.fill();
+  }
+  return tex(c);
+}
+function forestVeilTex(){
+  const [c,g] = cv(256, 256);
+  g.fillStyle = '#d8b06a'; g.fillRect(0,0,256,256);
+  const cols = ['#e2703a','#d9486a','#4a86c8','#e3c93f','#7fae52','#c874b0','#e8e0c8'];
+  for(let i=0;i<900;i++){
+    g.fillStyle = cols[Math.floor(rnd(0,cols.length))];
+    g.globalAlpha = rnd(.5,.95);
+    const s2 = rnd(4,10);
+    g.fillRect(rnd(0,256-s2), rnd(0,256-s2), s2, s2);
+  }
+  g.globalAlpha = 1;
+  return tex(c);
+}
+
+function buildForest(){
+  forestBuilt = true;
+  const gt = forestGroundTex(); gt.repeat.set(9,9);
+  const gr = new THREE.Mesh(new THREE.PlaneGeometry(64, 64), new THREE.MeshLambertMaterial({map:gt}));
+  gr.rotation.x = -Math.PI/2; gr.position.set(FC.x, 0, FC.z); scene.add(gr);
+  const B = 26;   // invisible bounds
+  forestWalls.push({x0:FC.x-B-1, x1:FC.x+B+1, z0:FC.z+B, z1:FC.z+B+1});
+  forestWalls.push({x0:FC.x-B-1, x1:FC.x+B+1, z0:FC.z-B-1, z1:FC.z-B});
+  forestWalls.push({x0:FC.x-B-1, x1:FC.x-B, z0:FC.z-B, z1:FC.z+B});
+  forestWalls.push({x0:FC.x+B, x1:FC.x+B+1, z0:FC.z-B, z1:FC.z+B});
+  // trees with painterly bark
+  const bark1 = forestBarkTex(), bark2 = forestBarkTex();
+  for(let i=0;i<34;i++){
+    let tx, tz, tries = 0;
+    do { tx = FC.x + rnd(-24, 24); tz = FC.z + rnd(-24, 24); tries++; }
+    while(tries < 25 && (Math.hypot(tx-FC.x, tz-FC.z) < 4.5 || Math.hypot(tx-FC.x, tz-(FC.z+4.8)) < 2.8));
+    const h = rnd(5.5, 9), r = rnd(0.22, 0.45);
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(r*0.72, r, h, 8),
+      new THREE.MeshLambertMaterial({map: i%2 ? bark1 : bark2}));
+    tr.position.set(tx, h/2, tz); tr.rotation.z = rnd(-0.05, 0.05); scene.add(tr);
+    forestWalls.push({x0:tx-r, x1:tx+r, z0:tz-r, z1:tz+r});
+    for(let b=0;b<2;b++){   // bare branches
+      const bh = rnd(1.4, 2.4);
+      const br = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, bh, 6), tr.material);
+      br.position.set(tx + rnd(-0.7,0.7), h*rnd(0.55,0.8), tz + rnd(-0.7,0.7));
+      br.rotation.z = rnd(0.5, 1.1) * (Math.random() < .5 ? -1 : 1);
+      br.rotation.x = rnd(-0.4, 0.4);
+      scene.add(br);
+    }
+  }
+  // the three veiled ladies — with blinking eyes
+  const veil = forestVeilTex();
+  for(const [fx, fz, s] of [[FC.x-2.6, FC.z-2.2, 1.06],[FC.x+2.3, FC.z-3.0, 1.16],[FC.x-0.3, FC.z-5.4, 0.96]]){
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.9, 9),
+      new THREE.MeshLambertMaterial({map:veil}));
+    cone.position.set(fx, 0.95*s, fz); cone.scale.setScalar(s); scene.add(cone);
+    const face = new THREE.Mesh(new THREE.CircleGeometry(0.125*s, 16),
+      new THREE.MeshBasicMaterial({color:0xf3e2c4}));
+    face.position.set(fx, 1.42*s, fz + 0.335*s); scene.add(face);
+    const eyes = new THREE.Group();
+    for(const ex of [-0.048, 0.048]){
+      const w = new THREE.Mesh(new THREE.CircleGeometry(0.023, 10), new THREE.MeshBasicMaterial({color:0xfffdf4}));
+      w.position.set(ex*s, 0.012, 0.002);
+      const pu = new THREE.Mesh(new THREE.CircleGeometry(0.011, 8), new THREE.MeshBasicMaterial({color:0x2a2118}));
+      pu.position.set(ex*s, 0.012, 0.004);
+      eyes.add(w, pu);
+    }
+    eyes.position.set(fx, 1.42*s, fz + 0.336*s); scene.add(eyes);
+    blinkers.push({eyes, next: rnd(2, 6)});
+    forestWalls.push({x0:fx-0.5, x1:fx+0.5, z0:fz-0.5, z1:fz+0.5});
+  }
+  // falling leaves
+  for(let i=0;i<26;i++){
+    const lf = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.08),
+      new THREE.MeshBasicMaterial({color: i%3 ? 0xd8722e : 0xc23b2e, side:THREE.DoubleSide}));
+    lf.position.set(FC.x + rnd(-16,16), rnd(1.5, 7), FC.z + rnd(-16,16));
+    lf.rotation.set(rnd(0,3), rnd(0,3), rnd(0,3));
+    scene.add(lf); leaves.push(lf);
+  }
+  // the way back: painting 52 itself, floating in its frame
+  const pf = new THREE.Mesh(new THREE.BoxGeometry(1.34, 1.72, 0.07), frameMat2);
+  pf.position.set(FC.x, 1.55, FC.z + 5.3); scene.add(pf);
+  const pm = new THREE.MeshBasicMaterial({color:0xcfc6b5, toneMapped:false});
+  const pp = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.58), pm);
+  pp.position.set(FC.x, 1.55, FC.z + 5.26); pp.rotation.y = Math.PI; scene.add(pp);
+  imgLoader.load('assets/img/l/52.jpg', im => {
+    const t2 = artTex(im); pm.map = t2; pm.color.set(0xffffff); pm.needsUpdate = true;
+  });
+  const cap = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.14),
+    new THREE.MeshBasicMaterial({map: textTexture([
+      {text: T('forestBack'), font:'500 44px system-ui', dy:2}], 1024, 96, {bg:'#f4efe3'})}));
+  cap.position.set(FC.x, 0.55, FC.z + 5.26); cap.rotation.y = Math.PI; scene.add(cap);
+  portalPos = new THREE.Vector3(FC.x, EYE, FC.z + 5.3);
+}
+function enterForest(){
+  if(!forestBuilt) buildForest();
+  forestReturn = {pos: camera.position.clone(), yaw, pitch};
+  endFocus(true); hideCard();
+  inForest = true; jumpY = 0; vy = 0;
+  scene.background = new THREE.Color(0xf2e8bd);
+  scene.fog = new THREE.Fog(0xf2e8bd, 8, 42);
+  camera.position.set(FC.x, EYE, FC.z + 3.4);
+  yaw = 0; pitch = 0;   // facing the three ladies
+  flashHint(T('forestName'));
+}
+function restoreAmbience(){
+  scene.background = new THREE.Color(0xc7c0b2);
+  scene.fog = new THREE.Fog(0xc7c0b2, 36, 135);
+}
+function exitForest(){
+  if(!inForest) return;
+  inForest = false; restoreAmbience();
+  if(forestReturn){ camera.position.copy(forestReturn.pos); yaw = forestReturn.yaw; pitch = forestReturn.pitch; }
+}
+
 /* ============================== movement ================================ */
 let yaw = -Math.PI/2, pitch = 0;
 camera.position.set(2.2, EYE, 0);
 const keys = {};
 const vel = new THREE.Vector3();
 let locked = false, focusItem = null, focusAnim = null;
+let jumpY = 0, vy = 0;   // jump physics
 
 addEventListener('keydown', e => {
   keys[e.code] = true;
@@ -892,13 +1148,33 @@ addEventListener('keydown', e => {
     const i = +e.code.slice(5);
     if(i >= 1 && i <= 9) teleport(i);
   }
+  if(e.code === 'Space' && intro.classList.contains('hidden') && !focusItem && jumpY === 0 && vy === 0){
+    vy = 4.6;   // jump
+  }
+  if(e.code === 'KeyN' && intro.classList.contains('hidden') && !inForest){
+    // cycle through paintings: nearest first, then next along the visitor route
+    const pubs = placements.filter(p => !p.secret || secretOpen);
+    let idx;
+    if(focusItem){
+      const cur = pubs.findIndex(p => p.item === focusItem);
+      idx = (cur + (e.shiftKey ? -1 : 1) + pubs.length) % pubs.length;
+    } else {
+      let bd = 1e9; idx = 0;
+      pubs.forEach((p, i) => {
+        const d = Math.hypot(p.cx - camera.position.x, p.cz - camera.position.z);
+        if(d < bd){ bd = d; idx = i; }
+      });
+    }
+    startFocus(pubs[idx].item);
+  }
   if(focusItem && ['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) endFocus();
 });
 addEventListener('keyup', e => keys[e.code] = false);
 
 function collide(px, pz){
+  const aw = inForest ? forestWalls : walls;
   for(let pass=0; pass<2; pass++){
-    for(const w of walls){
+    for(const w of aw){
       const x0 = w.x0 - PLAYER_R, x1 = w.x1 + PLAYER_R;
       const z0 = w.z0 - PLAYER_R, z1 = w.z1 + PLAYER_R;
       if(px > x0 && px < x1 && pz > z0 && pz < z1){
@@ -914,17 +1190,18 @@ function collide(px, pz){
 
 function teleport(i){
   const r = rooms[i]; if(!r) return;
+  if(inForest){ inForest = false; restoreAmbience(); }
   endFocus(true);
   camera.position.set(r.x0 + 1.4, EYE, 0);
   yaw = -Math.PI/2; pitch = 0;
-  flashHint(`Sala ${ROMAN[i-1]} — ${r.name}`);
+  flashHint(`${T('room')} ${ROMAN[i-1]} — ${tGroup(lang, r.name)}`);
 }
 
 /* pointer lock */
 const intro = document.getElementById('intro');
 const isTouch = matchMedia('(hover: none)').matches;
 intro.addEventListener('click', e => {
-  if(e.target.closest('a')) return;   // back link navigates, don't enter
+  if(e.target.closest('a, .opts')) return;   // links & options don't enter the gallery
   intro.classList.add('hidden');
   if(!isTouch) canvas.requestPointerLock();
 });
@@ -939,7 +1216,7 @@ document.addEventListener('pointerlockchange', () => {
 addEventListener('mousemove', e => {
   if(!locked || focusAnim) return;
   yaw   -= e.movementX * 0.0023;
-  pitch -= e.movementY * 0.0023;
+  pitch -= e.movementY * 0.0023 * (INVY ? -1 : 1);
   pitch = Math.max(-1.35, Math.min(1.35, pitch));
 });
 
@@ -984,7 +1261,11 @@ addEventListener('touchend', e => {
       if(tapInfo && Date.now() - tapInfo.t < 350){
         const ndc = new THREE.Vector2(tapInfo.x/innerWidth*2-1, -(tapInfo.y/innerHeight)*2+1);
         const hit = pick(ndc);
-        if(hit) startFocus(hit.object.userData.item);
+        if(hit){
+          const itm = hit.object.userData.item;
+          if(focusItem === itm && itm.n === 52) enterForest();   // step into "Trzy Panie"
+          else startFocus(itm);
+        }
         else if(focusItem) endFocus();
       }
       lookTouch = null; tapInfo = null;
@@ -1012,14 +1293,17 @@ let cardItem = null, hoverRec = null;
 const fmt = n => n.toLocaleString('pl-PL');
 
 function fillCard(it){
-  cardEls.num.textContent = `№ ${String(it.n).padStart(3,'0')} · ${it.cat}`;
+  cardEls.num.textContent = `№ ${String(it.n).padStart(3,'0')} · ${tCat(lang, it.cat)}`;
   cardEls.sold.hidden = !it.sold;
-  cardEls.title.textContent = it.title;
-  const dims = it.measured ? `${it.w} × ${it.h} cm` : `ok. ${Math.round(it.w)} × ${Math.round(it.h)} cm`;
-  cardEls.sub.textContent = [it.year, dims, it.support].filter(Boolean).join(' · ');
-  cardEls.price.innerHTML = `Estymacja: <b>${fmt(it.plnLo)} – ${fmt(it.plnHi)} zł</b>`;
-  cardEls.note.hidden = !it.note; if(it.note) cardEls.note.textContent = it.note;
-  cardEls.soldinfo.hidden = !it.sold; if(it.sold) cardEls.soldinfo.textContent = it.soldInfo || '';
+  cardEls.sold.textContent = T('soldBadge');
+  cardEls.title.textContent = tTitle(lang, it);
+  const dims = it.measured ? `${it.w} × ${it.h} cm` : `${T('approx')} ${Math.round(it.w)} × ${Math.round(it.h)} cm`;
+  cardEls.sub.textContent = [it.year, dims, tSup(lang, it.support)].filter(Boolean).join(' · ');
+  // prices only on sold works
+  cardEls.price.hidden = !it.sold;
+  if(it.sold) cardEls.price.innerHTML = `${T('sold')}: <b>${it.soldInfo || ''}</b>`;
+  cardEls.note.hidden = true;
+  cardEls.soldinfo.hidden = true;
 }
 
 function showCardFor(it, rec){
@@ -1040,6 +1324,7 @@ function hideCard(){ card.classList.remove('show'); cardItem = null; }
 /* focus (walk-up) mode */
 function startFocus(it){
   const rec = itemMeshes.get(it.n); if(!rec) return;
+  jumpY = 0; vy = 0;
   const p = rec.placement;
   const nrm = new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0), p.rotY);
   const dist = Math.max(1.35, Math.min(4, Math.max(p.w, p.h)*1.15 + 0.75));
@@ -1060,7 +1345,10 @@ canvas.addEventListener('mousedown', e => {
   if(isTouch || !locked) return;
   const hit = pick(new THREE.Vector2(0,0));
   if(hit && hit.distance < 12){
-    if(focusItem === hit.object.userData.item) endFocus();
+    if(focusItem === hit.object.userData.item){
+      if(focusItem.n === 52) enterForest();   // step into "Trzy Panie"
+      else endFocus();
+    }
     else startFocus(hit.object.userData.item);
   } else if(focusItem) endFocus();
 });
@@ -1071,7 +1359,7 @@ const roomsel = document.getElementById('roomsel');
 rooms.forEach((r, i) => {
   const o = document.createElement('option');
   o.value = i;
-  o.textContent = r.lobby ? 'Wejście' : `Sala ${ROMAN[i-1]} — ${r.name}`;
+  o.textContent = r.lobby ? T('entrance') : `${T('room')} ${ROMAN[i-1]} — ${tGroup(lang, r.name)}`;
   roomsel.appendChild(o);
 });
 roomsel.addEventListener('change', () => { if(+roomsel.value > 0) teleport(+roomsel.value); else { camera.position.set(2.2, EYE, 0); yaw=-Math.PI/2; pitch=0; } roomsel.blur(); });
@@ -1084,10 +1372,18 @@ function flashHint(msg){
   clearTimeout(hintTimer); hintTimer = setTimeout(() => hint.classList.add('hidden'), 3200);
 }
 
-/* ?sala=N deep link from the landing page */
+/* deep links: ?sala=N jumps to a room, ?obraz=N walks up to a painting */
 {
-  const s = +(new URLSearchParams(location.search).get('sala') || 0);
+  const q = new URLSearchParams(location.search);
+  const s = +(q.get('sala') || 0);
   if(s >= 1 && s <= 9) teleport(s);
+  const ob = +(q.get('obraz') || 0);
+  const pl = placements.find(p => p.item.n === ob && !p.secret);
+  if(pl){
+    const nX = Math.sin(pl.rotY), nZ = Math.cos(pl.rotY);
+    camera.position.set(pl.cx + nX*2.6, EYE, pl.cz + nZ*2.6);
+    startFocus(pl.item);
+  }
 }
 
 /* ============================== main loop =============================== */
@@ -1124,7 +1420,11 @@ function animate(){
     if(vl > sp){ vel.x *= sp/vl; vel.z *= sp/vl; }
     let nx = camera.position.x + vel.x*dt, nz = camera.position.z + vel.z*dt;
     [nx, nz] = collide(nx, nz);
-    camera.position.set(nx, EYE, nz);
+    if(vy !== 0 || jumpY > 0){
+      vy -= 12.5*dt; jumpY += vy*dt;
+      if(jumpY <= 0){ jumpY = 0; vy = 0; }
+    }
+    camera.position.set(nx, EYE + jumpY, nz);
   }
   camera.rotation.set(pitch, yaw, 0);
 
@@ -1144,13 +1444,60 @@ function animate(){
     }
   }
 
+  /* blue key: gentle spin, pickup when near */
+  if(!hasKey && keyGroup.visible){
+    keyGroup.rotation.z += dt*0.8;
+    if(Math.hypot(camera.position.x - keyGroup.position.x, camera.position.z - keyGroup.position.z) < 0.85){
+      hasKey = true; keyGroup.visible = false;
+      document.getElementById('keyicon').style.display = 'block';
+      flashHint(T('keyFound'));
+    }
+  }
+  /* jump by the end wall with the key → the plug slides into the floor */
+  if(hasKey && !secretOpen && jumpY > 0.04 &&
+     camera.position.x > END_X - 2.3 && camera.position.x < END_X && Math.abs(camera.position.z) < 2.4){
+    secretOpen = true; plugAnim = 0;
+    flashHint(T('secretOpen'));
+    const pi = walls.indexOf(plugWall); if(pi >= 0) walls.splice(pi, 1);
+  }
+  if(plugAnim !== null){
+    plugAnim = Math.min(1, plugAnim + dt/1.8);
+    const e2 = plugAnim*plugAnim;
+    plugMesh.position.y = DOOR_H/2 - (DOOR_H + 0.06)*e2;
+    if(plugAnim >= 1) plugAnim = null;
+  }
+  /* forest life: blinking eyes, falling leaves, the way back */
+  if(inForest){
+    const now = clock.elapsedTime;
+    for(const b of blinkers){
+      if(now > b.next){
+        const ph = now - b.next;
+        b.eyes.scale.y = ph < 0.11 ? Math.max(0.06, 1 - ph/0.11) : Math.min(1, (ph - 0.11)/0.11);
+        if(ph > 0.24){ b.eyes.scale.y = 1; b.next = now + 2.5 + Math.random()*4.5; }
+      }
+    }
+    for(const lf of leaves){
+      lf.position.y -= dt*0.4;
+      lf.rotation.x += dt*1.2; lf.rotation.z += dt*0.8;
+      lf.position.x += Math.sin(now*1.3 + lf.id)*dt*0.3;
+      if(lf.position.y < 0.15) lf.position.y = 5 + Math.random()*3;
+    }
+    if(portalPos && camera.position.distanceTo(portalPos) < 1.3) exitForest();
+  }
+
   /* room tag */
-  const rx2 = camera.position.x;
-  const ri = rooms.findIndex(r => rx2 >= r.x0 - WALL_T && rx2 < r.x1);
-  if(ri !== lastRoomIdx && ri >= 0){
-    lastRoomIdx = ri;
-    roomtag.textContent = rooms[ri].lobby ? '' : `Sala ${ROMAN[ri-1]} · ${rooms[ri].name}`;
-    roomsel.value = ri;
+  if(inForest){
+    if(lastRoomIdx !== -2){ lastRoomIdx = -2; roomtag.textContent = T('forestName'); }
+  } else if(camera.position.x >= END_X){
+    if(lastRoomIdx !== -3){ lastRoomIdx = -3; roomtag.textContent = T('secretRoom'); }
+  } else {
+    const rx2 = camera.position.x;
+    const ri = rooms.findIndex(r => rx2 >= r.x0 - WALL_T && rx2 < r.x1);
+    if(ri !== lastRoomIdx && ri >= 0){
+      lastRoomIdx = ri;
+      roomtag.textContent = rooms[ri].lobby ? '' : `${T('room')} ${ROMAN[ri-1]} · ${tGroup(lang, rooms[ri].name)}`;
+      roomsel.value = ri;
+    }
   }
 
   renderer.render(scene, camera);
@@ -1161,9 +1508,14 @@ animate();
 window.__gallery = {
   camera, rooms, placements, renderer,
   get yaw(){ return yaw; }, get moveVec(){ return moveVec; }, get focusItem(){ return focusItem; },
+  get state(){ return {hasKey, secretOpen, inForest, jumpY, lang}; },
   look(y, p){ yaw = y; pitch = p ?? 0; },
   goto(x, z, y, p){ camera.position.set(x, EYE, z); if(y !== undefined) yaw = y; if(p !== undefined) pitch = p; },
   focus(n){ const it = KOSNO.items.find(i => i.n === n); if(it) startFocus(it); },
+  jump(){ if(jumpY === 0 && vy === 0) vy = 4.6; },
+  giveKey(){ hasKey = true; keyGroup.visible = false; document.getElementById('keyicon').style.display = 'block'; },
+  forest(){ enterForest(); },
+  leaveForest(){ exitForest(); },
 };
 
 addEventListener('resize', () => {

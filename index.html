@@ -46,6 +46,10 @@ header.bar{position:sticky;top:0;z-index:40;backdrop-filter:blur(10px);
   background:var(--amber);color:#1d1509;font-weight:600;font-size:13.5px;
   padding:8px 16px;border-radius:999px;transition:transform .15s, box-shadow .2s;white-space:nowrap}
 .btn3d:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(224,160,80,.35)}
+.langbtn{background:none;border:1px solid var(--line2);color:var(--muted);border-radius:999px;
+  padding:6px 13px;font-size:12px;font-weight:600;letter-spacing:.08em;cursor:pointer;
+  font-family:var(--sans);transition:color .2s, border-color .2s}
+.langbtn:hover{color:var(--ink);border-color:var(--amber)}
 @media(max-width:700px){.bar nav a.navlink{display:none}.brand span{display:none}}
 
 /* ---------- hero ---------- */
@@ -218,9 +222,10 @@ footer a:hover{color:var(--ink)}
   <div class="wrap">
     <a class="brand" href="#"><b>Jan Kosno</b><span>1913–1996 · malarstwo</span></a>
     <nav>
-      <a class="navlink" href="#o-malarzu">O malarzu</a>
-      <a class="navlink" href="#kolekcja">Kolekcja</a>
-      <a class="btn3d" href="3d.html">Galeria 3D <span aria-hidden="true">→</span></a>
+      <a class="navlink" href="#o-malarzu" id="nav-about">O malarzu</a>
+      <a class="navlink" href="#kolekcja" id="nav-coll">Kolekcja</a>
+      <button class="langbtn" id="langbtn" title="Switch language">EN</button>
+      <a class="btn3d" href="3d.html" id="nav-3d">Galeria 3D <span aria-hidden="true">→</span></a>
     </nav>
   </div>
 </header>
@@ -228,50 +233,39 @@ footer a:hover{color:var(--ink)}
 <section class="hero">
   <div class="wrap">
     <div>
-      <div class="kicker">Kolekcja rodzinna · 164 prace</div>
+      <div class="kicker" id="i-kicker">Kolekcja rodzinna</div>
       <h1>Jan Kosno</h1>
       <div class="dates">1913 – 1996</div>
-      <p class="lead">Malarz i rysownik związany z krakowskim i śląskim środowiskiem artystycznym.
-        <b>Paryż lat 1968–1970, Wenecja, Tatry</b> — a obok nich impresje, abstrakcje
-        i sceny symboliczne. Cała spuścizna zebrana w&nbsp;wirtualnym muzeum o dziewięciu salach.</p>
+      <p class="lead" id="i-lead"></p>
       <div class="cta-row">
-        <a class="cta primary" href="3d.html">Wejdź do galerii 3D <span aria-hidden="true">→</span></a>
-        <a class="cta ghost" href="#kolekcja">Przeglądaj katalog ↓</a>
+        <a class="cta primary" href="3d.html"><span id="i-cta3d">Wejdź do galerii 3D</span> <span aria-hidden="true">→</span></a>
+        <a class="cta ghost" href="#kolekcja" id="i-ctabrowse">Przeglądaj katalog ↓</a>
       </div>
       <div class="stats">
-        <div class="stat"><b>164</b><span>prace</span></div>
-        <div class="stat"><b>9</b><span>sal tematycznych</span></div>
-        <div class="stat"><b>1968–70</b><span>okres paryski</span></div>
+        <div class="stat"><b id="i-count">163</b><span id="i-works">prace</span></div>
+        <div class="stat"><b>9</b><span id="i-rooms">sal tematycznych</span></div>
+        <div class="stat"><b>1968–70</b><span id="i-paris">okres paryski</span></div>
       </div>
     </div>
     <div class="portrait">
       <div class="p-frame"><img src="assets/img/s/107.jpg" alt="Jan Kosno — autoportret" width="512" height="759"></div>
-      <div class="p-caption"><b>Autoportret</b> · № 107 · olej na płótnie</div>
+      <div class="p-caption" id="i-pcap"></div>
     </div>
   </div>
 </section>
 
 <section class="about" id="o-malarzu">
   <div class="wrap">
-    <div class="sec-head"><h2>O malarzu</h2><div class="rule"></div></div>
+    <div class="sec-head"><h2 id="i-abouth">O malarzu</h2><div class="rule"></div></div>
     <div class="cols">
       <div>
-        <p>Jan Kosno tworzył przez ponad pół wieku — od przedwojennych pejzaży podmiejskich
-        po ekspresyjne impresje lat dziewięćdziesiątych. Związany z krakowskim i śląskim
-        środowiskiem artystycznym oraz z Krakowską Grupą Twórczą ZPAP „Postawy”,
-        pozostawił po sobie spójny, rozpoznawalny język malarski: wibrujący kolor,
-        rozedrgane światło i pejzaż na granicy abstrakcji.</p>
-        <p>Na przełomie lat 60. i 70. pracował w Paryżu. Powstały wówczas cykle znad Sekwany
-        i z Marché aux Puces, widoki dachów miasta oraz portrety paryskiej bohemy —
-        hipisów, muzyków, bukinistów.</p>
+        <p id="i-bio1"></p>
+        <p id="i-bio2"></p>
       </div>
       <div>
-        <p>Malował Wenecję, Tatry, polskie miasta i morze. W dojrzałej twórczości coraz
-        śmielej sięgał po czystą impresję i symbol: płonące zbocza gór, supernowe,
-        witraże dusz. Wystawę „Rysunek i malarstwo Jana Kosno” pokazała Galeria
-        Extravagance w Zamku Sieleckim w Sosnowcu (2002).</p>
-        <div class="quote">Malarz ruchu — światła, które nie stoi w miejscu.
-          <small>o twórczości Jana Kosno</small>
+        <p id="i-bio3"></p>
+        <div class="quote"><span id="i-quote"></span>
+          <small id="i-quotesub"></small>
         </div>
       </div>
     </div>
@@ -280,11 +274,10 @@ footer a:hover{color:var(--ink)}
       <div class="strip" id="strip"></div>
       <div class="inner">
         <div>
-          <h3>Przejdź się po wirtualnym muzeum</h3>
-          <p>Dziewięć sal, obrazy w rzeczywistej skali, wyceny i historia każdej pracy.
-          Na komputerze: klawisze W A S D i mysz. Na telefonie: sterowanie dotykiem.</p>
+          <h3 id="i-bannerh"></h3>
+          <p id="i-bannerp"></p>
         </div>
-        <a class="cta primary" href="3d.html">Wejdź do galerii 3D <span aria-hidden="true">→</span></a>
+        <a class="cta primary" href="3d.html"><span id="i-cta3d2"></span> <span aria-hidden="true">→</span></a>
       </div>
     </div>
   </div>
@@ -292,7 +285,7 @@ footer a:hover{color:var(--ink)}
 
 <section class="collection" id="kolekcja">
   <div class="wrap">
-    <div class="sec-head"><h2>Kolekcja</h2><div class="rule"></div></div>
+    <div class="sec-head"><h2 id="i-collh">Kolekcja</h2><div class="rule"></div></div>
     <nav class="roomnav" id="roomnav" aria-label="Sale"></nav>
     <div id="rooms"></div>
   </div>
@@ -300,8 +293,8 @@ footer a:hover{color:var(--ink)}
 
 <footer>
   <div class="wrap">
-    <div>© Rodzina Jana Kosno · kolekcja prywatna</div>
-    <div><a href="3d.html">Galeria 3D</a> · <a href="#kolekcja">Katalog</a></div>
+    <div id="i-footl">© Rodzina Jana Kosno · kolekcja prywatna</div>
+    <div><a href="3d.html" id="i-foot3d">Galeria 3D</a> · <a href="#kolekcja" id="i-footcat">Katalog</a></div>
   </div>
 </footer>
 
@@ -325,6 +318,45 @@ footer a:hover{color:var(--ink)}
 
 <script type="module">
 import KOSNO from './assets/data.js';
+import {getLang, setLang, makeT, tGroup, tCat, tSup, tTitle} from './assets/i18n.js';
+
+const lang = getLang();
+const t = makeT(lang);
+const PUB = KOSNO.items.filter(i => !i.secret);   // secret works stay off the public site
+const N = PUB.length;
+
+/* localise all static copy */
+document.documentElement.lang = lang;
+document.title = t('titleMain');
+const $$ = id => document.getElementById(id);
+$$('nav-about').textContent = t('navAbout');
+$$('nav-coll').textContent = t('navCollection');
+$$('nav-3d').innerHTML = `${t('nav3d')} <span aria-hidden="true">→</span>`;
+$$('langbtn').textContent = lang === 'pl' ? 'EN' : 'PL';
+$$('langbtn').addEventListener('click', () => setLang(lang === 'pl' ? 'en' : 'pl'));
+document.querySelector('.brand span').textContent = t('brandSub');
+$$('i-kicker').textContent = t('kicker', {n: N});
+$$('i-lead').innerHTML = t('heroLead');
+$$('i-cta3d').textContent = t('ctaEnter');
+$$('i-ctabrowse').textContent = t('ctaBrowse');
+$$('i-count').textContent = N;
+$$('i-works').textContent = t('statWorks');
+$$('i-rooms').textContent = t('statRooms');
+$$('i-paris').textContent = t('statParis');
+$$('i-pcap').innerHTML = t('portraitCap');
+$$('i-abouth').textContent = t('aboutH');
+$$('i-bio1').textContent = t('bio1');
+$$('i-bio2').textContent = t('bio2');
+$$('i-bio3').textContent = t('bio3');
+$$('i-quote').textContent = t('quote');
+$$('i-quotesub').textContent = t('quoteSub');
+$$('i-bannerh').textContent = t('bannerH');
+$$('i-bannerp').textContent = t('bannerP');
+$$('i-cta3d2').textContent = t('ctaEnter');
+$$('i-collh').textContent = t('collectionH');
+$$('i-footl').textContent = t('footerL');
+$$('i-foot3d').textContent = t('nav3d');
+$$('i-footcat').textContent = t('footerCat');
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX'];
 const ROOM_META = {
@@ -338,45 +370,45 @@ const ROOM_META = {
   'Portrety i akty':      {wall:'#41544a', accent:'#c9a25e'},
   'Rysunki i dyptyki':    {wall:'#4c4844', accent:'#a8a29a'},
 };
-const fmt = n => n.toLocaleString('pl-PL');
 const pad = n => String(n).padStart(3,'0');
-const dimsOf = it => it.measured ? `${it.w} × ${it.h} cm` : `ok. ${Math.round(it.w)} × ${Math.round(it.h)} cm`;
+const dimsOf = it => it.measured ? `${it.w} × ${it.h} cm` : `${t('approx')} ${Math.round(it.w)} × ${Math.round(it.h)} cm`;
 
 /* palette strip in the banner = the 9 room wall colours (the enfilade) */
 document.getElementById('strip').innerHTML =
-  KOSNO.groups.map(g => `<i style="background:${ROOM_META[g].wall}" title="${g}"></i>`).join('');
+  KOSNO.groups.map(g => `<i style="background:${ROOM_META[g].wall}" title="${tGroup(lang, g)}"></i>`).join('');
 
 /* room nav chips */
 document.getElementById('roomnav').innerHTML = KOSNO.groups.map((g,i) =>
-  `<a class="chip" href="#sala-${i+1}"><i style="background:${ROOM_META[g].wall}"></i>${g}</a>`).join('');
+  `<a class="chip" href="#sala-${i+1}"><i style="background:${ROOM_META[g].wall}"></i>${tGroup(lang, g)}</a>`).join('');
 
 /* rooms + cards */
 const ordered = [];   // flat list in display order, for lightbox prev/next
 const roomsEl = document.getElementById('rooms');
 roomsEl.innerHTML = KOSNO.groups.map((g,gi) => {
-  const items = KOSNO.items.filter(i => i.group === g);
+  const items = PUB.filter(i => i.group === g);
   const m = ROOM_META[g];
   const cards = items.map(it => {
     ordered.push(it);
+    const ttl = tTitle(lang, it);
     const imgs = it.imgs.map(n =>
-      `<img loading="lazy" src="assets/img/s/${n}.jpg" alt="${it.title}">`).join('');
+      `<img loading="lazy" src="assets/img/s/${n}.jpg" alt="${ttl}">`).join('');
     return `<button class="card" data-n="${it.n}">
-      ${it.sold ? '<span class="soldtag">SPRZEDANY</span>' : ''}
+      ${it.sold ? `<span class="soldtag">${t('soldBadge')}</span>` : ''}
       <span class="thumb">${imgs}</span>
       <span class="meta">
         <span class="num">№ ${pad(it.n)}${it.year ? ' · ' + it.year : ''}</span>
-        <span class="ti" style="display:block">${it.title}</span>
+        <span class="ti" style="display:block">${ttl}</span>
         <span class="dim" style="display:block">${dimsOf(it)}</span>
-        <span class="price" style="display:block">${fmt(it.plnLo)} – ${fmt(it.plnHi)} zł</span>
+        ${it.sold && it.soldInfo ? `<span class="price" style="display:block">${t('sold')} · ${it.soldInfo}</span>` : ''}
       </span>
     </button>`;
   }).join('');
   return `<div class="sala" id="sala-${gi+1}">
     <div class="sala-head">
       <div class="swatch" style="background:${m.wall}"></div>
-      <div class="t"><small>Sala ${ROMAN[gi]}</small><h3>${g}</h3></div>
-      <span class="count">${items.length} prac</span>
-      <a class="go3d" href="3d.html?sala=${gi+1}">Zobacz salę w 3D →</a>
+      <div class="t"><small>${t('room')} ${ROMAN[gi]}</small><h3>${tGroup(lang, g)}</h3></div>
+      <span class="count">${items.length} ${t('works')}</span>
+      <a class="go3d" href="3d.html?sala=${gi+1}">${t('see3d')}</a>
     </div>
     <div class="sala-bar" style="background:linear-gradient(90deg, ${m.accent}, transparent 70%)"></div>
     <div class="grid">${cards}</div>
@@ -393,17 +425,18 @@ function openLB(idx){
   const it = ordered[cur];
   const wrap = el('lb-imgs');
   wrap.classList.toggle('duo', it.imgs.length > 1);
-  wrap.innerHTML = it.imgs.map(n => `<img src="assets/img/l/${n}.jpg" alt="${it.title}">`).join('');
-  el('lb-num').textContent = `№ ${pad(it.n)} · ${it.cat}`;
-  el('lb-title').textContent = it.title;
-  el('lb-sub').textContent = [it.year, dimsOf(it), it.support].filter(Boolean).join(' · ');
-  el('lb-price').innerHTML = `Estymacja: <b>${fmt(it.plnLo)} – ${fmt(it.plnHi)} zł</b>`;
+  wrap.innerHTML = it.imgs.map(n => `<img src="assets/img/l/${n}.jpg" alt="${tTitle(lang, it)}">`).join('');
+  el('lb-num').textContent = `№ ${pad(it.n)} · ${tCat(lang, it.cat)}`;
+  el('lb-title').textContent = tTitle(lang, it);
+  el('lb-sub').textContent = [it.year, dimsOf(it), tSup(lang, it.support)].filter(Boolean).join(' · ');
+  el('lb-price').hidden = !it.sold;
+  if(it.sold && it.soldInfo) el('lb-price').innerHTML = `${t('sold')}: <b>${it.soldInfo}</b>`;
   el('lb-sold').hidden = !it.sold;
-  if(it.sold && it.soldInfo) { el('lb-sold').textContent = 'SPRZEDANY · ' + it.soldInfo.replace('Sprzedany — ',''); }
-  el('lb-note').hidden = !it.note;
-  if(it.note) el('lb-note').textContent = it.note;
+  el('lb-sold').textContent = t('soldBadge');
+  el('lb-note').hidden = true;
   const gi = KOSNO.groups.indexOf(it.group);
-  el('lb-room').innerHTML = `Sala ${ROMAN[gi]} — ${it.group} · <a href="3d.html?sala=${gi+1}">zobacz w galerii 3D →</a>`;
+  el('lb-room').innerHTML = `${t('room')} ${ROMAN[gi]} — ${tGroup(lang, it.group)} · <a href="3d.html?obraz=${it.n}">${t('seeIn3d')}</a>`;
+  history.replaceState(null, '', '#obraz-' + it.n);   // shareable link to this painting
   const wasOpen = lb.classList.contains('open');
   lb.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -412,6 +445,7 @@ function openLB(idx){
 let lastFocus = null;
 function closeLB(){
   lb.classList.remove('open'); document.body.style.overflow = ''; cur = -1;
+  history.replaceState(null, '', location.pathname + location.search);
   if(lastFocus){ lastFocus.focus(); lastFocus = null; }
 }
 
@@ -439,6 +473,18 @@ lb.addEventListener('touchend', e => {
   if(Math.abs(dx) > 60) openLB(cur + (dx < 0 ? 1 : -1));
   tx = null;
 }, {passive:true});
+
+/* deep link: ?obraz=N or #obraz-N opens the lightbox on that painting */
+{
+  const q = new URLSearchParams(location.search);
+  const hm = (location.hash.match(/^#obraz-(\d+)$/) || [])[1];
+  const ob = +(q.get('obraz') || hm || 0);
+  const idx = ordered.findIndex(i => i.n === ob);
+  if(idx >= 0){
+    document.querySelector(`.card[data-n="${ob}"]`)?.scrollIntoView({block:'center', behavior:'instant'});
+    openLB(idx);
+  }
+}
 </script>
 </body>
 </html>
