@@ -234,6 +234,9 @@ const PUBN = KOSNO.items.filter(i => !i.secret).length;
 let INVY = localStorage.getItem('kosno-invy') === '1';
 document.documentElement.lang = lang;
 document.title = T('title3d');
+
+/* GA4 events (no-op when analytics is blocked) */
+const track = (name, params) => { try { window.gtag?.('event', name, {transport_type:'beacon', ...params}); } catch(_){} };
 {
   const S = (id, html) => { const e = document.getElementById(id); if(e) e.innerHTML = html; };
   S('in-kicker', T('introKicker')); S('in-sub', T('introSub', {n: PUBN})); S('in-howto', T('howto'));
@@ -1428,6 +1431,7 @@ function buildForest(){
   portalPos = new THREE.Vector3(FC.x, EYE, FC.z + 5.3);
 }
 function enterForest(){
+  track('forest_entered', {});
   if(!forestBuilt) buildForest();
   forestReturn = {pos: camera.position.clone(), yaw, pitch};
   endFocus(true); hideCard();
@@ -1482,7 +1486,7 @@ addEventListener('keydown', e => {
         if(d < bd){ bd = d; idx = i; }
       });
     }
-    startFocus(pubs[idx].item);
+    startFocus(pubs[idx].item, 'key_n');
   }
   if(focusItem && ['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) endFocus();
 });
@@ -1517,8 +1521,13 @@ function teleport(i){
 /* pointer lock */
 const intro = document.getElementById('intro');
 const isTouch = matchMedia('(hover: none)').matches;
+let enteredOnce = false;
 intro.addEventListener('click', e => {
   if(e.target.closest('a, .opts')) return;   // links & options don't enter the gallery
+  if(!enteredOnce){
+    enteredOnce = true;
+    track('gallery_enter', {device: isTouch ? 'touch' : 'desktop', lang});
+  }
   intro.classList.add('hidden');
   if(!isTouch) canvas.requestPointerLock();
 });
@@ -1582,9 +1591,9 @@ addEventListener('touchend', e => {
           const itm = hit.object.userData.item;
           if(focusItem === itm && itm.n === 52){   // step into "Trzy Panie" — with the orange key
             if(hasOrangeKey) enterForest();
-            else flashHint(T('locked52'));
+            else { track('forest_locked_attempt', {}); flashHint(T('locked52')); }
           }
-          else startFocus(itm);
+          else startFocus(itm, 'tap');
         }
         else if(focusItem) endFocus();
       }
@@ -1642,8 +1651,9 @@ function showCardFor(it, rec){
 function hideCard(){ card.classList.remove('show'); cardItem = null; }
 
 /* focus (walk-up) mode */
-function startFocus(it){
+function startFocus(it, via = 'click'){
   const rec = itemMeshes.get(it.n); if(!rec) return;
+  track('painting_focus', {painting_id: it.n, painting_title: it.title, via});
   jumpY = 0; vy = 0;
   const p = rec.placement;
   const nrm = new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0), p.rotY);
@@ -1668,7 +1678,7 @@ canvas.addEventListener('mousedown', e => {
     if(focusItem === hit.object.userData.item){
       if(focusItem.n === 52){   // step into "Trzy Panie" — with the orange key
         if(hasOrangeKey) enterForest();
-        else { flashHint(T('locked52')); endFocus(); }
+        else { track('forest_locked_attempt', {}); flashHint(T('locked52')); endFocus(); }
       }
       else endFocus();
     }
@@ -1705,7 +1715,7 @@ function flashHint(msg){
   if(pl){
     const nX = Math.sin(pl.rotY), nZ = Math.cos(pl.rotY);
     camera.position.set(pl.cx + nX*2.6, EYE, pl.cz + nZ*2.6);
-    startFocus(pl.item);
+    startFocus(pl.item, 'deeplink');
   }
 }
 
@@ -1774,6 +1784,7 @@ function animate(){
       hasKey = true; keyGroup.visible = false;
       document.getElementById('keyicon').style.display = 'block';
       flashHint(T('keyFound'));
+      track('key_found', {key: 'blue'});
     }
   }
   /* orange key waits in the secret room */
@@ -1783,6 +1794,7 @@ function animate(){
       hasOrangeKey = true; okeyGroup.visible = false;
       document.getElementById('okeyicon').style.display = 'block';
       flashHint(T('okeyFound'));
+      track('key_found', {key: 'orange'});
     }
   }
   /* jump by the end wall with the key → the plug slides into the floor */
@@ -1790,6 +1802,7 @@ function animate(){
      camera.position.x > END_X - 2.3 && camera.position.x < END_X && Math.abs(camera.position.z) < 2.4){
     secretOpen = true; plugAnim = 0;
     flashHint(T('secretOpen'));
+    track('secret_opened', {});
     const pi = walls.indexOf(plugWall); if(pi >= 0) walls.splice(pi, 1);
   }
   if(plugAnim !== null){
@@ -1852,7 +1865,10 @@ function animate(){
   if(inForest){
     if(lastRoomIdx !== -2){ lastRoomIdx = -2; roomtag.textContent = T('forestName'); }
   } else if(camera.position.x >= END_X){
-    if(lastRoomIdx !== -3){ lastRoomIdx = -3; roomtag.textContent = T('secretRoom'); }
+    if(lastRoomIdx !== -3){
+      lastRoomIdx = -3; roomtag.textContent = T('secretRoom');
+      track('room_enter', {room: 'secret_room'});
+    }
   } else {
     const rx2 = camera.position.x;
     const ri = rooms.findIndex(r => rx2 >= r.x0 - WALL_T && rx2 < r.x1);
@@ -1860,6 +1876,7 @@ function animate(){
       lastRoomIdx = ri;
       roomtag.textContent = rooms[ri].lobby ? '' : `${T('room')} ${ROMAN[ri-1]} · ${tGroup(lang, rooms[ri].name)}`;
       roomsel.value = ri;
+      track('room_enter', {room: rooms[ri].lobby ? 'lobby' : rooms[ri].name});
     }
   }
 

@@ -234,7 +234,7 @@ footer a:hover{color:var(--ink)}
       <a class="navlink" href="#o-malarzu" id="nav-about">O malarzu</a>
       <a class="navlink" href="#kolekcja" id="nav-coll">Kolekcja</a>
       <button class="langbtn" id="langbtn" title="Switch language">EN</button>
-      <a class="btn3d" href="3d.html" id="nav-3d">Galeria 3D <span aria-hidden="true">→</span></a>
+      <a class="btn3d" href="3d.html" id="nav-3d" data-place="topbar">Galeria 3D <span aria-hidden="true">→</span></a>
     </nav>
   </div>
 </header>
@@ -247,7 +247,7 @@ footer a:hover{color:var(--ink)}
       <div class="dates">1913 – 1996</div>
       <p class="lead" id="i-lead"></p>
       <div class="cta-row">
-        <a class="cta primary" href="3d.html"><span id="i-cta3d">Wejdź do galerii 3D</span> <span aria-hidden="true">→</span></a>
+        <a class="cta primary" href="3d.html" data-place="hero"><span id="i-cta3d">Wejdź do galerii 3D</span> <span aria-hidden="true">→</span></a>
         <a class="cta ghost" href="#kolekcja" id="i-ctabrowse">Przeglądaj katalog ↓</a>
       </div>
       <div class="stats">
@@ -286,7 +286,7 @@ footer a:hover{color:var(--ink)}
           <h3 id="i-bannerh"></h3>
           <p id="i-bannerp"></p>
         </div>
-        <a class="cta primary" href="3d.html"><span id="i-cta3d2"></span> <span aria-hidden="true">→</span></a>
+        <a class="cta primary" href="3d.html" data-place="banner"><span id="i-cta3d2"></span> <span aria-hidden="true">→</span></a>
       </div>
     </div>
   </div>
@@ -334,6 +334,9 @@ const t = makeT(lang);
 const PUB = KOSNO.items.filter(i => !i.secret);   // secret works stay off the public site
 const N = PUB.length;
 
+/* GA4 events (no-op when analytics is blocked) */
+const track = (name, params) => { try { window.gtag?.('event', name, {transport_type:'beacon', ...params}); } catch(_){} };
+
 /* localise all static copy */
 document.documentElement.lang = lang;
 document.title = t('titleMain');
@@ -342,7 +345,18 @@ $$('nav-about').textContent = t('navAbout');
 $$('nav-coll').textContent = t('navCollection');
 $$('nav-3d').innerHTML = `${t('nav3d')} <span aria-hidden="true">→</span>`;
 $$('langbtn').textContent = lang === 'pl' ? 'EN' : 'PL';
-$$('langbtn').addEventListener('click', () => setLang(lang === 'pl' ? 'en' : 'pl'));
+$$('langbtn').addEventListener('click', () => {
+  track('lang_switch', {lang: lang === 'pl' ? 'en' : 'pl'});
+  setLang(lang === 'pl' ? 'en' : 'pl');
+});
+
+/* which CTA leads people into the 3D gallery + room chip usage */
+document.addEventListener('click', e => {
+  const a3d = e.target.closest('a[href^="3d.html"]');
+  if(a3d){ track('enter_3d_click', {placement: a3d.dataset.place || 'link'}); return; }
+  const chip = e.target.closest('#roomnav .chip');
+  if(chip) track('room_nav_click', {room: chip.textContent.trim()});
+});
 document.querySelector('.brand span').textContent = t('brandSub');
 $$('i-kicker').textContent = t('kicker', {n: N});
 $$('i-lead').innerHTML = t('heroLead');
@@ -417,7 +431,7 @@ roomsEl.innerHTML = KOSNO.groups.map((g,gi) => {
       <div class="swatch" style="background:${m.wall}"></div>
       <div class="t"><small>${t('room')} ${ROMAN[gi]}</small><h3>${tGroup(lang, g)}</h3></div>
       <span class="count">${items.length} ${t('works')}</span>
-      <a class="go3d" href="3d.html?sala=${gi+1}">${t('see3d')}</a>
+      <a class="go3d" href="3d.html?sala=${gi+1}" data-place="sala">${t('see3d')}</a>
     </div>
     <div class="sala-bar" style="background:linear-gradient(90deg, ${m.accent}, transparent 70%)"></div>
     <div class="grid">${cards}</div>
@@ -429,9 +443,10 @@ const lb = document.getElementById('lb');
 const el = id => document.getElementById(id);
 let cur = -1;
 
-function openLB(idx){
+function openLB(idx, source = 'card'){
   cur = (idx + ordered.length) % ordered.length;
   const it = ordered[cur];
+  track('painting_open', {painting_id: it.n, painting_title: it.title, room: it.group, source});
   const wrap = el('lb-imgs');
   wrap.classList.toggle('duo', it.imgs.length > 1);
   wrap.innerHTML = it.imgs.map(n => `<img src="assets/img/l/${n}.jpg" alt="${tTitle(lang, it)}">`).join('');
@@ -444,7 +459,7 @@ function openLB(idx){
   el('lb-sold').textContent = t('soldBadge');
   el('lb-note').hidden = true;
   const gi = KOSNO.groups.indexOf(it.group);
-  el('lb-room').innerHTML = `${t('room')} ${ROMAN[gi]} — ${tGroup(lang, it.group)} · <a href="3d.html?obraz=${it.n}">${t('seeIn3d')}</a>`;
+  el('lb-room').innerHTML = `${t('room')} ${ROMAN[gi]} — ${tGroup(lang, it.group)} · <a href="3d.html?obraz=${it.n}" data-place="lightbox">${t('seeIn3d')}</a>`;
   history.replaceState(null, '', '#obraz-' + it.n);   // shareable link to this painting
   const wasOpen = lb.classList.contains('open');
   lb.classList.add('open');
@@ -464,14 +479,14 @@ roomsEl.addEventListener('click', e => {
   openLB(ordered.findIndex(i => i.n === +c.dataset.n));
 });
 el('lb-close').addEventListener('click', closeLB);
-el('lb-prev').addEventListener('click', () => openLB(cur - 1));
-el('lb-next').addEventListener('click', () => openLB(cur + 1));
+el('lb-prev').addEventListener('click', () => openLB(cur - 1, 'nav'));
+el('lb-next').addEventListener('click', () => openLB(cur + 1, 'nav'));
 lb.addEventListener('click', e => { if(e.target === lb) closeLB(); });
 addEventListener('keydown', e => {
   if(!lb.classList.contains('open')) return;
   if(e.key === 'Escape') closeLB();
-  if(e.key === 'ArrowLeft') openLB(cur - 1);
-  if(e.key === 'ArrowRight') openLB(cur + 1);
+  if(e.key === 'ArrowLeft') openLB(cur - 1, 'nav');
+  if(e.key === 'ArrowRight') openLB(cur + 1, 'nav');
 });
 /* swipe on mobile */
 let tx = null;
@@ -479,7 +494,7 @@ lb.addEventListener('touchstart', e => tx = e.touches[0].clientX, {passive:true}
 lb.addEventListener('touchend', e => {
   if(tx === null) return;
   const dx = e.changedTouches[0].clientX - tx;
-  if(Math.abs(dx) > 60) openLB(cur + (dx < 0 ? 1 : -1));
+  if(Math.abs(dx) > 60) openLB(cur + (dx < 0 ? 1 : -1), 'nav');
   tx = null;
 }, {passive:true});
 
@@ -491,7 +506,7 @@ lb.addEventListener('touchend', e => {
   const idx = ordered.findIndex(i => i.n === ob);
   if(idx >= 0){
     document.querySelector(`.card[data-n="${ob}"]`)?.scrollIntoView({block:'center', behavior:'instant'});
-    openLB(idx);
+    openLB(idx, 'deeplink');
   }
 }
 </script>
