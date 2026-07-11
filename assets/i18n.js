@@ -75,6 +75,8 @@ pl: {
   locked52:'Coś tu jest ukryte — ale potrzebny jest klucz.',
   secretRoom:'Sala sekretna', secretHint:'Coś tu zgrzytnęło — spróbuj podskoczyć przy ścianie.',
   forestBack:'Dotknij ramy, aby wrócić do galerii', forestName:'Las Trzech Pań',
+  consentText:'Ta strona używa Google Analytics (pliki cookie) do pomiaru odwiedzin oraz personalizacji i pomiaru reklam. Możesz zmienić decyzję w każdej chwili w stopce strony.',
+  consentAccept:'Zgadzam się', consentDeny:'Tylko niezbędne', privacy:'Ustawienia prywatności',
 },
 en: {
   soldBadge:'SOLD', sold:'Sold', approx:'c.', works:'works', room:'Room', entrance:'Entrance',
@@ -119,6 +121,8 @@ en: {
   locked52:'Something is hidden here — but it needs a key.',
   secretRoom:'Secret room', secretHint:'Something creaked here — try jumping by the wall.',
   forestBack:'Touch the frame to return to the gallery', forestName:'Forest of the Three Ladies',
+  consentText:'This site uses Google Analytics cookies to measure visits and for ad personalization and measurement. You can change your choice at any time in the page footer.',
+  consentAccept:'Accept', consentDeny:'Essential only', privacy:'Privacy settings',
 }};
 
 export function makeT(lang){

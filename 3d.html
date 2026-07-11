@@ -4,11 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Jan Kosno (1913–1996) — Galeria 3D</title>
-<!-- Google tag (gtag.js) -->
+<!-- Google tag (gtag.js) + Consent Mode v2 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-F7E0ZDVN14"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
+  // EOG: domyślnie brak zgody, dopóki użytkownik nie zdecyduje (baner)
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: 'denied',
+    wait_for_update: 500
+  });
+  gtag('set', 'ads_data_redaction', true);
+  gtag('set', 'url_passthrough', true);
+  // przywróć wcześniejszą decyzję
+  (function(){
+    try{
+      var c = localStorage.getItem('kosno-consent');
+      if(c === 'granted' || c === 'denied'){
+        gtag('consent', 'update', {ad_storage:c, ad_user_data:c, ad_personalization:c, analytics_storage:c});
+      }
+    }catch(e){}
+  })();
   gtag('js', new Date());
 
   gtag('config', 'G-F7E0ZDVN14');
@@ -132,6 +151,9 @@ body.locked #cross{opacity:.9}
 #introback{margin-top:26px;font-size:12.5px;color:var(--muted);text-decoration:none;
   border-bottom:1px dotted var(--muted);padding-bottom:1px}
 #introback:hover{color:var(--ink)}
+#privacy3d{margin-top:12px;font-size:11px;color:#8c7d70;text-decoration:none;
+  border-bottom:1px dotted #8c7d70;padding-bottom:1px}
+#privacy3d:hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -219,6 +241,7 @@ body.locked #cross{opacity:.9}
     <div id="loadbar"><i></i></div>
     <div id="loadpct">wczytywanie…</div>
     <a id="introback" href="./">← wróć na stronę główną</a>
+    <a id="privacy3d" href="#"></a>
   </div>
 </div>
 
@@ -226,6 +249,7 @@ body.locked #cross{opacity:.9}
 import * as THREE from './assets/three.module.js';
 import KOSNO from './assets/data.js';
 import {getLang, setLang, makeT, tGroup, tCat, tSup, tTitle} from './assets/i18n.js';
+import {initConsentBanner, resetConsent} from './assets/consent.js';
 
 /* ============================== language & options ===================== */
 const lang = getLang();
@@ -249,7 +273,9 @@ const track = (name, params) => { try { window.gtag?.('event', name, {transport_
   S('t3h', T('tArtH')); S('t3p', T('tArtP'));
   S('invy-l', T('invertY')); S('enterbtn', T('enter'));
   S('introback', T('back')); S('brand-sub', T('brand3dSub')); S('brand-back', T('backTop'));
-  S('hint', T('hint'));
+  S('hint', T('hint')); S('privacy3d', T('privacy'));
+  document.getElementById('privacy3d').addEventListener('click', e => { e.preventDefault(); resetConsent(T); });
+  initConsentBanner(T);
   document.getElementById('lang-' + lang).classList.add('on');
   document.getElementById('lang-pl').addEventListener('click', () => { if(lang !== 'pl') setLang('pl'); });
   document.getElementById('lang-en').addEventListener('click', () => { if(lang !== 'en') setLang('en'); });

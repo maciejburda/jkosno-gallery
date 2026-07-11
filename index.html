@@ -5,11 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Jan Kosno (1913–1996) — malarstwo i rysunek. Kolekcja 164 prac: Paryż, Wenecja, Tatry, impresje i abstrakcje. Galeria 3D i katalog online.">
 <title>Jan Kosno (1913–1996) — Galeria</title>
-<!-- Google tag (gtag.js) -->
+<!-- Google tag (gtag.js) + Consent Mode v2 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-F7E0ZDVN14"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
+  // EOG: domyślnie brak zgody, dopóki użytkownik nie zdecyduje (baner)
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: 'denied',
+    wait_for_update: 500
+  });
+  gtag('set', 'ads_data_redaction', true);
+  gtag('set', 'url_passthrough', true);
+  // przywróć wcześniejszą decyzję
+  (function(){
+    try{
+      var c = localStorage.getItem('kosno-consent');
+      if(c === 'granted' || c === 'denied'){
+        gtag('consent', 'update', {ad_storage:c, ad_user_data:c, ad_personalization:c, analytics_storage:c});
+      }
+    }catch(e){}
+  })();
   gtag('js', new Date());
 
   gtag('config', 'G-F7E0ZDVN14');
@@ -303,7 +322,7 @@ footer a:hover{color:var(--ink)}
 <footer>
   <div class="wrap">
     <div id="i-footl">© Rodzina Jana Kosno · kolekcja prywatna</div>
-    <div><a href="3d.html" id="i-foot3d">Galeria 3D</a> · <a href="#kolekcja" id="i-footcat">Katalog</a></div>
+    <div><a href="3d.html" id="i-foot3d">Galeria 3D</a> · <a href="#kolekcja" id="i-footcat">Katalog</a> · <a href="#" id="i-privacy"></a></div>
   </div>
 </footer>
 
@@ -328,6 +347,7 @@ footer a:hover{color:var(--ink)}
 <script type="module">
 import KOSNO from './assets/data.js';
 import {getLang, setLang, makeT, tGroup, tCat, tSup, tTitle} from './assets/i18n.js';
+import {initConsentBanner, resetConsent} from './assets/consent.js';
 
 const lang = getLang();
 const t = makeT(lang);
@@ -380,6 +400,9 @@ $$('i-collh').textContent = t('collectionH');
 $$('i-footl').textContent = t('footerL');
 $$('i-foot3d').textContent = t('nav3d');
 $$('i-footcat').textContent = t('footerCat');
+$$('i-privacy').textContent = t('privacy');
+$$('i-privacy').addEventListener('click', e => { e.preventDefault(); resetConsent(t); });
+initConsentBanner(t);
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX'];
 const ROOM_META = {
