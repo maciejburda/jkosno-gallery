@@ -2,6 +2,7 @@
 
 Wirtualna galeria 3D z 164 obrazami Jana Kosno, pogrupowanymi w 9 sal tematycznych.
 Statyczna strona (bez bazy danych) — czysty HTML + Three.js, gotowa na GitHub Pages.
+Wersja beta `v2/` renderuje galerię przez WebGPU (TypeGPU) — patrz niżej.
 
 ## Podgląd lokalny
 
@@ -50,6 +51,40 @@ Obrazy wiszą w skali rzeczywistej (cm → m). Dla 84 prac bez zmierzonych wymia
 rozmiar jest szacowany z proporcji zdjęcia (karta pokazuje wtedy „ok. … cm").
 Sprzedane prace (obecnie № 049 „Jesienne impresje", Sopot 2021) mają czerwoną
 kropkę na tabliczce i odznakę SPRZEDANY na karcie.
+
+## Wersja v2 (beta): WebGPU / TypeGPU
+
+`/v2/` to nowa galeria 3D napisana od zera na [TypeGPU](https://docs.swmansion.com/TypeGPU/)
+(WebGPU, shadery w TypeScript). Logika, UI, linki, i18n i analityka są takie same jak w `3d.html`
+(zdarzenia GA mają dodatkowo `gallery_version: v2`); przeglądarki bez WebGPU są automatycznie
+przekierowywane do `3d.html` z zachowaniem parametrów. Na stronie głównej link „Wersja beta: WebGPU”
+pojawia się tylko tam, gdzie WebGPU jest dostępne.
+
+Co daje v2:
+- cała architektura w jednym draw call, wszystkie obrazy w jednym instancjonowanym (≈15× mniej CPU na klatkę),
+- podłogi pieczone na GPU (compute + `@typegpu/noise`), tynk liczony w przestrzeni świata (bez powtórzeń),
+- światło nad każdym obrazem z miękkim cieniem ramy, analityczne AO, odbicia planarne (także na telefonach),
+- HDR + MSAA 4×, PBR Neutral, bloom, dynamiczna rozdzielczość,
+- Las Trzech Pań: instancjonowane pnie, Panie z mozaiki (oczy śledzą zwiedzającego), 90 tys. pociągnięć
+  pędzla, liście i pył symulowane na GPU, filtr malarski (Kuwahara) i promienie światła.
+
+Rozwój i budowanie (Node 20+):
+
+```sh
+cd v2-src
+npm install
+npm run dev      # http://localhost:5173 — obrazy z ../assets/img serwuje plugin Vite
+npm run lint     # reguły eslint-plugin-typegpu
+npm run build    # typecheck + build do ../v2/
+```
+
+**Ważne:** katalog `v2/` jest wynikiem builda i jest commitowany (GitHub Pages serwuje go
+bez dodatkowej konfiguracji) — po każdej zmianie w `v2-src/` trzeba uruchomić `npm run build`
+i zacommitować również `v2/`.
+
+Parametry testowe: `?perf=1` — licznik FPS i rozdzielczości, `?scale=0.7` — stała skala renderu,
+`?nogpu=1` — symulacja braku WebGPU (przekierowanie do `3d.html`). W konsoli: `__gallery`
+(te same haki co w v1 + `tick(n)` do sterowania klatkami w ukrytej karcie).
 
 ## Publikacja na GitHub Pages
 

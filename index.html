@@ -97,6 +97,13 @@ header.bar{position:sticky;top:0;z-index:40;backdrop-filter:blur(10px);
 .cta.primary:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(224,160,80,.42)}
 .cta.ghost{border:1px solid var(--line2);color:var(--ink);background:rgba(34,27,22,.4)}
 .cta.ghost:hover{background:rgba(34,27,22,.85)}
+/* beta: the WebGPU (TypeGPU) version of the 3D gallery — shown only where WebGPU exists */
+.beta-v2{display:inline-flex;align-items:center;gap:9px;margin-top:16px;text-decoration:none;
+  font-size:12.5px;letter-spacing:.06em;color:var(--muted);border:1px solid rgba(224,160,80,.4);
+  border-radius:999px;padding:7px 15px;transition:color .2s, border-color .2s, background .2s}
+.beta-v2:hover{color:var(--ink);border-color:var(--amber);background:rgba(224,160,80,.08)}
+.beta-v2 .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.beta-v2[hidden]{display:none}
 .hero .stats{display:flex;gap:26px;margin-top:44px;flex-wrap:wrap}
 .stat b{display:block;font-family:var(--serif);font-size:26px;font-weight:500;color:var(--ink)}
 .stat span{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
@@ -269,6 +276,7 @@ footer a:hover{color:var(--ink)}
         <a class="cta primary" href="3d.html" data-place="hero"><span id="i-cta3d">Wejdź do galerii 3D</span> <span aria-hidden="true">→</span></a>
         <a class="cta ghost" href="#kolekcja" id="i-ctabrowse">Przeglądaj katalog ↓</a>
       </div>
+      <a class="beta-v2" id="beta-v2" href="v2/" data-place="beta_v2" hidden><span class="dot" aria-hidden="true"></span><span id="i-betav2">Wersja beta: WebGPU</span> <span aria-hidden="true">→</span></a>
       <div class="stats">
         <div class="stat"><b id="i-count">163</b><span id="i-works">prace</span></div>
         <div class="stat"><b>9</b><span id="i-rooms">sal tematycznych</span></div>
@@ -374,6 +382,7 @@ $$('langbtn').addEventListener('click', () => {
 document.addEventListener('click', e => {
   const a3d = e.target.closest('a[href^="3d.html"]');
   if(a3d){ track('enter_3d_click', {placement: a3d.dataset.place || 'link'}); return; }
+  if(e.target.closest('a[href^="v2/"]')){ track('enter_3d_click', {placement: 'beta_v2', gallery_version: 'v2'}); return; }
   const chip = e.target.closest('#roomnav .chip');
   if(chip) track('room_nav_click', {room: chip.textContent.trim()});
 });
@@ -396,6 +405,8 @@ $$('i-quotesub').textContent = t('quoteSub');
 $$('i-bannerh').textContent = t('bannerH');
 $$('i-bannerp').textContent = t('bannerP');
 $$('i-cta3d2').textContent = t('ctaEnter');
+$$('i-betav2').textContent = t('betaV2');
+if('gpu' in navigator) $$('beta-v2').hidden = false;
 $$('i-collh').textContent = t('collectionH');
 $$('i-footl').textContent = t('footerL');
 $$('i-foot3d').textContent = t('nav3d');
