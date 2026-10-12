@@ -11,6 +11,7 @@ import { styleOfRoom, FEATURE_WALL, SECRET_WALL, hexLinear, type RoomStyle } fro
 import { MeshBuilder, Mat, hexCol, type V3, type VertexAttrs, add, scale } from './mesh.ts';
 import { LabelAtlas, drawText, drawBio, drawRug, type AtlasRect } from '../textures/labels.ts';
 import { type Lang, type T, tGroup } from '../shared/data.ts';
+import { FC, PORTAL } from '../forest/layout.ts';
 
 export const FRAME_W = 0.06;     // moulding width around the canvas
 export const FRAME_D = 0.062;    // moulding depth off the wall
@@ -26,7 +27,7 @@ export interface RoomRec {
   panelColor: V3; layer: number; bounce: V3;
 }
 export interface World {
-  mesh: ArrayBuffer; vertexCount: number;
+  mesh: ArrayBuffer; vertexCount: number; museumVerts: number; forestRoom: number;
   lights: LightRec[]; rooms: RoomRec[]; panels: [number, number, number, number][];
   atlas: LabelAtlas;
   debugRects?: Record<string, unknown>;
@@ -70,6 +71,7 @@ export function buildWorld(lang: Lang, T: T): World {
   const bioRect = atlas.add(1024, 1000, drawBio(T, publicCount));
   const capRect = atlas.add(1024, 128, drawText([{ text: T('selfPortrait'), font: '500 56px system-ui', dy: 2 }], 1024, 128, { bg: '#f4efe3' }));
   const rugRect = atlas.add(768, 512, drawRug);
+  const forestCap = atlas.add(1024, 96, drawText([{ text: T('forestBack'), font: '500 44px system-ui', dy: 2 }], 1024, 96, { bg: '#f4efe3' }));
   atlas.pack();
 
   /* ---------- floors, ceilings, side walls, skirting, cornice (per room) ---------- */
@@ -241,7 +243,20 @@ export function buildWorld(lang: Lang, T: T): World {
     };
   });
 
-  return { mesh: mb.bytes(), vertexCount: mb.count, lights, rooms: roomRecs, panels, atlas, debugRects: { rugRect, titleRect, bioRect, capRect, roomSigns } };
+  /* the forest of painting № 052 gets its own (light-less) room record and the caption under the portal,
+     appended last so the museum pass can skip it */
+  const FOREST_ROOM = roomRecs.length;
+  roomRecs.push({
+    x0: -1e5, x1: 1e5, lightStart: 0, lightCount: 0, panelStart: 0, panelCount: 0, fscale: 1, polish: 0,
+    benchX: -1000, doorW: 0, doorE: 0, panelI: 0, panelColor: [0, 0, 0], layer: 0, bounce: [0.62, 0.45, 0.3],
+  });
+  const forestFirst = mb.count;
+  plane(mb, [FC[0], 0.55, PORTAL[2] - 0.04], [-1, 0, 0], up, 1.5, 0.14, label(forestCap, FOREST_ROOM), forestCap);
+
+  return {
+    mesh: mb.bytes(), vertexCount: mb.count, museumVerts: forestFirst, forestRoom: FOREST_ROOM,
+    lights, rooms: roomRecs, panels, atlas, debugRects: { rugRect, titleRect, bioRect, capRect, roomSigns },
+  };
 }
 
 function hslLinear(h: number, s: number, l: number): V3 {

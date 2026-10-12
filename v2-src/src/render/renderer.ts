@@ -34,6 +34,7 @@ export interface ViewState {
   ambient: [number, number, number];
   exposure: number;
   inForest: boolean;
+  sun?: [number, number, number];   // forest: sun position in uv + ray strength
 }
 
 /* extra draws recorded into the main / reflection passes (the forest plugs in here) */
@@ -47,7 +48,7 @@ const GOLD = d.vec3f(0.95, 0.72, 0.36);
 const PANEL_EMIT = 4.5;
 
 export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world: World, opts: {
-  tier: Tier; tex: PaintingTextures; instances: InstanceRec[];
+  tier: Tier; tex: PaintingTextures; instances: InstanceRec[]; museumInstances: number;
 }) {
   const HIGH = opts.tier === 'high';
   const context = root.configureContext({ canvas, alphaMode: 'opaque' });
@@ -105,7 +106,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   const reflLayout = tgpu.bindGroupLayout({ refl: { texture: d.texture2d(d.f32) } });
   const srcLayout = tgpu.bindGroupLayout({ src: { texture: d.texture2d(d.f32) } });
   const compLayout = tgpu.bindGroupLayout({ scene: { texture: d.texture2d(d.f32) }, bloom: { texture: d.texture2d(d.f32) } });
-  const PostU = d.struct({ exposure: d.f32, bloom: d.f32, time: d.f32, vignette: d.f32, sharpen: d.f32, pad: d.vec3f });
+  const PostU = d.struct({ exposure: d.f32, bloom: d.f32, time: d.f32, vignette: d.f32, sharpen: d.f32, rays: d.f32, sun: d.vec2f });
   const post = root.createUniform(PostU);
 
   /* ---------------- lighting ---------------- */
@@ -450,6 +451,52 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     return d.vec4f(s, 1);
   });
 
+  /* the forest is seen "through the painting": anisotropy-free Kuwahara (4 sectors) flattens the render
+     into dabs of paint, plus god rays streaming from the bright gap behind the great tree */
+  const KR = HIGH ? 3 : 2;
+  const painterlyFrag = tgpu.fragmentFn({ in: { uv: d.vec2f }, out: d.vec4f })((i) => {
+    'use gpu';
+    const P = post.$;
+    const dims = std.textureDimensions(srcLayout.$.src);
+    const ts = 1 / d.vec2f(dims);
+    let bestMean = d.vec3f(0);
+    let bestVar = d.f32(1e9);
+    for (const qd of tgpu.unroll([0, 1, 2, 3])) {
+      const sx = std.select(d.f32(-1), d.f32(1), qd === 1 || qd === 3);
+      const sy = std.select(d.f32(-1), d.f32(1), qd >= 2);
+      let m = d.vec3f(0);
+      let m2 = d.f32(0);
+      for (const yy of tgpu.unroll(std.range(KR + 1))) {
+        for (const xx of tgpu.unroll(std.range(KR + 1))) {
+          const c = std.textureSampleLevel(srcLayout.$.src, sPost.$, i.uv + d.vec2f(sx * xx, sy * yy) * ts * 1.15, 0).xyz;
+          m += c;
+          const l = luminance(c);
+          m2 += l * l;
+        }
+      }
+      const n = d.f32((KR + 1) * (KR + 1));
+      const mean = m / n;
+      const lm = luminance(mean);
+      const v = m2 / n - lm * lm;
+      if (v < bestVar) { bestVar = v; bestMean = d.vec3f(mean); }
+    }
+    // impasto: a faint brush-stroke relief over the whole image
+    randf.seed2(std.floor(i.uv * d.vec2f(dims) / 5));
+    const stroke = 1 + (randf.sample() - 0.5) * 0.07;
+    let col = bestMean * stroke;
+    // god rays toward the sun
+    let rays = d.f32(0);
+    const dirv = (P.sun - i.uv) / 24;
+    let suv = d.vec2f(i.uv);
+    for (const k of tgpu.unroll(std.range(24))) {
+      suv = suv + dirv;
+      const l = luminance(std.textureSampleLevel(srcLayout.$.src, sPost.$, suv, 2).xyz);
+      rays += std.max(l - 1.25, 0) * (0.94 ** k);
+    }
+    col = col + d.vec3f(1.0, 0.82, 0.5) * rays * (P.rays / 24);
+    return d.vec4f(col, 1);
+  });
+
   const fs = common.fullScreenTriangle;
   const downPrefilter = root.with(prefilterSlot, true).createRenderPipeline({ vertex: fs, fragment: downFrag, targets: { format: HDR } });
   const downPlain = root.createRenderPipeline({ vertex: fs, fragment: downFrag, targets: { format: HDR } });
@@ -458,6 +505,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     targets: { format: HDR, blend: { color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'add' } } },
   });
   const composite = root.createRenderPipeline({ vertex: fs, fragment: compFrag, targets: { format: presentFormat } });
+  const painterly = root.createRenderPipeline({ vertex: fs, fragment: painterlyFrag, targets: { format: HDR } });
 
   /* ---------------- resolution-dependent targets ---------------- */
   const BLOOM_LEVELS = HIGH ? 5 : 4;
@@ -480,11 +528,16 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       const view = tex.createView(d.texture2d(d.f32));
       return { tex, rt: tex.createView('render'), view, bg: root.createBindGroup(srcLayout, { src: view }) };
     });
+    const paint = root.createTexture({ size: [w, h], format: HDR }).$usage('render', 'sampled');
+    const sceneMips = root.createTexture({ size: [w, h], format: HDR, mipLevelCount: 4 }).$usage('render', 'sampled');
     const sceneView = scene.createView(d.texture2d(d.f32));
     const sceneSrcBG = root.createBindGroup(srcLayout, { src: sceneView });
     const compBG = root.createBindGroup(compLayout, { scene: sceneView, bloom: blooms[0].view });
-    return { w, h, msaa, depth, scene, reflTex, reflDepth, reflRT, reflBG, blooms, sceneSrcBG, compBG,
-      destroy() { msaa.destroy(); depth.destroy(); scene.destroy(); reflTex.destroy(); reflDepth.destroy(); blooms.forEach(b => b.tex.destroy()); } };
+    const paintBG = root.createBindGroup(compLayout, { scene: paint.createView(d.texture2d(d.f32)), bloom: blooms[0].view });
+    const mipsSrcBG = root.createBindGroup(srcLayout, { src: sceneMips.createView(d.texture2d(d.f32)) });
+    const paintRT = paint.createView('render');
+    return { w, h, msaa, depth, scene, sceneMips, reflTex, reflDepth, reflRT, reflBG, blooms, sceneSrcBG, compBG, paintBG, mipsSrcBG, paintRT,
+      destroy() { msaa.destroy(); depth.destroy(); scene.destroy(); sceneMips.destroy(); paint.destroy(); reflTex.destroy(); reflDepth.destroy(); blooms.forEach(b => b.tex.destroy()); } };
   }
 
   let targets: Targets | null = null;
@@ -529,7 +582,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       writeFrame(frameRefl, vs, t, tmp as Float32Array, -vs.pos[1]);
     }
     groups.write(vs.groups);
-    post.write({ exposure: vs.exposure, bloom: vs.inForest ? 0.09 : 0.055, time: vs.time % 1000, vignette: 0.42, sharpen: renderScale < 0.99 ? 0.35 : 0, pad: d.vec3f() });
+    post.write({ exposure: vs.exposure, bloom: vs.inForest ? 0.08 : 0.055, time: vs.time % 1000, vignette: vs.inForest ? 0.3 : 0.42, sharpen: renderScale < 0.99 && !vs.inForest ? 0.35 : 0, rays: vs.sun ? vs.sun[2] : 0, sun: d.vec2f(vs.sun ? vs.sun[0] : 0.5, vs.sun ? vs.sun[1] : 0.5) });
 
     const clear = [vs.fog.color[0], vs.fog.color[1], vs.fog.color[2], 1] as const;
     const enc = root['~unstable'].createCommandEncoder();
@@ -538,8 +591,8 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
         colorAttachments: [{ view: t.reflRT, loadOp: 'clear', storeOp: 'store', clearValue: clear }],
         depthStencilAttachment: { view: t.reflDepth, depthClearValue: 0, depthLoadOp: 'clear', depthStoreOp: 'discard' },
       });
-      refl.arch.with(archLayout, archBuf).with(rp).draw(world.vertexCount);
-      refl.paint.with(frameLayout, frameBuf).with(rp).draw(frameMesh.count, opts.instances.length);
+      refl.arch.with(archLayout, archBuf).with(rp).draw(world.museumVerts);
+      refl.paint.with(frameLayout, frameBuf).with(rp).draw(frameMesh.count, opts.museumInstances);
       extra?.(rp, true);
       rp.end();
       enc.submit();
@@ -549,32 +602,54 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     }
 
     const enc2 = root['~unstable'].createCommandEncoder();
+    let enc2b: ReturnType<typeof root['~unstable']['createCommandEncoder']> | null = null;
     const mp = enc2.beginRenderPass({
       colorAttachments: [{ view: t.msaa, resolveTarget: t.scene, loadOp: 'clear', storeOp: 'discard', clearValue: clear }],
       depthStencilAttachment: { view: t.depth, depthClearValue: 0, depthLoadOp: 'clear', depthStoreOp: 'discard' },
     });
     if (!vs.inForest) {
-      main.arch.with(archLayout, archBuf).with(t.reflBG).with(mp).draw(world.vertexCount);
-      main.paint.with(frameLayout, frameBuf).with(mp).draw(frameMesh.count, opts.instances.length);
+      main.arch.with(archLayout, archBuf).with(t.reflBG).with(mp).draw(world.museumVerts);
+      main.paint.with(frameLayout, frameBuf).with(mp).draw(frameMesh.count, opts.museumInstances);
+    } else {
+      // the forest: its sky must come first, then the portal painting + caption, then the forest itself
+      extra?.(mp, false);
+      main.arch.with(archLayout, archBuf).with(t.reflBG).with(mp).draw(world.vertexCount - world.museumVerts, 1, world.museumVerts);
+      if (opts.instances.length > opts.museumInstances) {
+        main.paint.with(frameLayout, frameBuf).with(mp).draw(frameMesh.count, opts.instances.length - opts.museumInstances, 0, opts.museumInstances);
+      }
     }
-    extra?.(mp, false);
+    if (!vs.inForest) extra?.(mp, false);
     mp.end();
 
+    // forest: Kuwahara + god rays read a small mip chain of the resolved scene
+    let compBG = t.compBG;
+    if (vs.inForest) compBG = t.paintBG;
+
+    if (vs.inForest) {
+      enc2.submit();
+      t.sceneMips.copyFrom(t.scene, { size: [t.w, t.h] });
+      t.sceneMips.generateMipmaps();
+      enc2b = root['~unstable'].createCommandEncoder();
+      const pp = enc2b.beginRenderPass({ colorAttachments: [{ view: t.paintRT, loadOp: 'clear', storeOp: 'store' }] });
+      painterly.with(t.mipsSrcBG).with(pp).draw(3);
+      pp.end();
+    }
+    const enc4 = enc2b ?? enc2;
     // bloom chain
     for (let k = 0; k < t.blooms.length; k++) {
-      const p = enc2.beginRenderPass({ colorAttachments: [{ view: t.blooms[k].rt, loadOp: 'clear', storeOp: 'store' }] });
-      (k === 0 ? downPrefilter : downPlain).with(k === 0 ? t.sceneSrcBG : t.blooms[k - 1].bg).with(p).draw(3);
+      const p = enc4.beginRenderPass({ colorAttachments: [{ view: t.blooms[k].rt, loadOp: 'clear', storeOp: 'store' }] });
+      (k === 0 ? downPrefilter : downPlain).with(k === 0 ? (vs.inForest ? t.mipsSrcBG : t.sceneSrcBG) : t.blooms[k - 1].bg).with(p).draw(3);
       p.end();
     }
     for (let k = t.blooms.length - 1; k > 0; k--) {
-      const p = enc2.beginRenderPass({ colorAttachments: [{ view: t.blooms[k - 1].rt, loadOp: 'load', storeOp: 'store' }] });
+      const p = enc4.beginRenderPass({ colorAttachments: [{ view: t.blooms[k - 1].rt, loadOp: 'load', storeOp: 'store' }] });
       upAdd.with(t.blooms[k].bg).with(p).draw(3);
       p.end();
     }
-    const cp = enc2.beginRenderPass({ colorAttachments: [{ view: context, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }] });
-    composite.with(t.compBG).with(cp).draw(3);
+    const cp = enc4.beginRenderPass({ colorAttachments: [{ view: context, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }] });
+    composite.with(compBG).with(cp).draw(3);
     cp.end();
-    enc2.submit();
+    enc4.submit();
   }
 
   return {
@@ -584,13 +659,14 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     get renderScale() { return renderScale; },
     set renderScale(s: number) { renderScale = s; },
     get size() { return targets ? [targets.w, targets.h] : [0, 0]; },
+    get viewProj() { return vp as Float32Array; },
     /* streaming state → GPU */
     setDyn(i: number, hiSlot: number, hiMix: number, thumbReady: number) {
       dynData[i * 4] = hiSlot; dynData[i * 4 + 1] = hiMix; dynData[i * 4 + 2] = thumbReady;
     },
     flushDyn() { dyn.write(dynData); },
     async warmup() {
-      await Promise.all([main.arch, main.paint, refl.arch, refl.paint, downPrefilter, downPlain, upAdd, composite].map(p => p.initAsync()));
+      await Promise.all([main.arch, main.paint, refl.arch, refl.paint, downPrefilter, downPlain, upAdd, composite, painterly].map(p => p.initAsync()));
     },
     shaderCode() { return tgpu.resolve([main.arch, main.paint, composite]); },
   };

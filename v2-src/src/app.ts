@@ -15,6 +15,7 @@ import { step, startFocus, endFocus, teleportTo, doJump, findItem } from './game
 import { pick, FOV } from './game/picking.ts';
 import { track } from './game/analytics.ts';
 import { createForest, type Forest } from './forest/forest.ts';
+import { PORTAL } from './forest/layout.ts';
 
 export async function startApp(root: TgpuRoot, lang: Lang) {
   const T = makeT(lang);
@@ -76,7 +77,18 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
       refs.push({ img, x: p.cx, z: p.cz });
     });
   }
-  const renderer = createRenderer(root, $<HTMLCanvasElement>('scene'), world, { tier, tex, instances });
+  // the portal back from the forest: painting № 052 itself, hung in the air (appended after the museum)
+  const museumInstances = instances.length;
+  {
+    const it52 = findItem(52);
+    if (it52) {
+      instances.push({ center: [PORTAL[0], PORTAL[1], PORTAL[2]], right: [-1, 0, 0], normal: [0, 0, -1], hw: 0.6, hh: 0.79,
+        room: world.forestRoom, frameCol: [0x4a / 255, 0x3a / 255, 0x28 / 255], img: 52, layer: tex.layerOf.get(52) ?? 0 });
+      instImg.push(52);
+      refs.push({ img: 52, x: PORTAL[0], z: PORTAL[2] });
+    }
+  }
+  const renderer = createRenderer(root, $<HTMLCanvasElement>('scene'), world, { tier, tex, instances, museumInstances });
   const pool = new HiResPool(tex, tier === 'high' ? 14 : 8, tier === 'high' ? 12 : 6);
   const thumbReady = new Set<number>();
   let dynDirty = true;
@@ -91,7 +103,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
   renderer.warmup().catch(err => console.warn('warmup', err)).finally(() => { warm = true; });
 
   let forest: Forest | null = null;
-  const getForest = () => (forest ??= createForest(root, renderer, T));
+  const getForest = () => (forest ??= createForest(root, renderer, tier === 'high'));
 
   /* ============================== HUD (v1) ============================== */
   const intro = $('intro');
@@ -235,7 +247,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
         else focusOff();
       } else startFocus(hit.p.item);
     } else if (S.inForest) {
-      getForest().click();
+      if (getForest().click(aspect())) exitForest();
     } else if (S.focusItem) focusOff();
   });
 
@@ -289,7 +301,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
       const itm = hit.p.item;
       if (S.focusItem === itm && itm.n === 52) tryEnter52();
       else startFocus(itm, 'tap');
-    } else if (S.inForest) getForest().click();
+    } else if (S.inForest) { if (getForest().click(aspect(), x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1)) exitForest(); }
     else if (S.focusItem) focusOff();
   }
 
@@ -383,7 +395,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
 
     /* forest life + the way back */
     if (S.inForest && forest) {
-      forest.update(dt);
+      forest.update(dt, aspect());
       if (forest.atPortal()) exitForest();
     }
 
@@ -417,7 +429,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
     renderer.render({
       pos: S.pos, yaw: S.yaw, pitch: S.pitch, time: S.time, groups,
       fog: fogM, ambient: S.inForest && forest ? forest.ambient : [0.3, 0.29, 0.27],
-      exposure: S.inForest ? 1.0 : 0.82, inForest: S.inForest,
+      exposure: S.inForest ? 0.92 : 0.82, inForest: S.inForest, sun: S.inForest && forest ? forest.sun : undefined,
     });
 
     /* dynamic resolution: step the internal resolution when frames run long */
