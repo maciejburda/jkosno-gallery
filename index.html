@@ -98,12 +98,15 @@ header.bar{position:sticky;top:0;z-index:40;backdrop-filter:blur(10px);
 .cta.ghost{border:1px solid var(--line2);color:var(--ink);background:rgba(34,27,22,.4)}
 .cta.ghost:hover{background:rgba(34,27,22,.85)}
 /* beta: the WebGPU (TypeGPU) version of the 3D gallery — shown only where WebGPU exists */
-.beta-v2{display:inline-flex;align-items:center;gap:9px;margin-top:16px;text-decoration:none;
-  font-size:12.5px;letter-spacing:.06em;color:var(--muted);border:1px solid rgba(224,160,80,.4);
-  border-radius:999px;padding:7px 15px;transition:color .2s, border-color .2s, background .2s}
-.beta-v2:hover{color:var(--ink);border-color:var(--amber);background:rgba(224,160,80,.08)}
-.beta-v2 .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber)}
-.beta-v2[hidden]{display:none}
+/* which 3D gallery the buttons open: v2 (WebGPU, default) or the classic one — shown only with WebGPU */
+.ver-sw{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint)}
+.ver-sw[hidden]{display:none}
+.ver-btns{display:flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
+.ver-btns button{background:none;border:0;color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;
+  letter-spacing:.04em;text-transform:none;padding:7px 14px;cursor:pointer;transition:color .2s, background .2s}
+.ver-btns button:hover{color:var(--ink)}
+.ver-btns button.on{background:rgba(224,160,80,.2);color:var(--ink)}
 .hero .stats{display:flex;gap:26px;margin-top:44px;flex-wrap:wrap}
 .stat b{display:block;font-family:var(--serif);font-size:26px;font-weight:500;color:var(--ink)}
 .stat span{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
@@ -260,7 +263,7 @@ footer a:hover{color:var(--ink)}
       <a class="navlink" href="#o-malarzu" id="nav-about">O malarzu</a>
       <a class="navlink" href="#kolekcja" id="nav-coll">Kolekcja</a>
       <button class="langbtn" id="langbtn" title="Switch language">EN</button>
-      <a class="btn3d" href="3d.html" id="nav-3d" data-place="topbar">Galeria 3D <span aria-hidden="true">→</span></a>
+      <a class="btn3d" href="v2/" id="nav-3d" data-3d data-place="topbar">Galeria 3D <span aria-hidden="true">→</span></a>
     </nav>
   </div>
 </header>
@@ -273,10 +276,15 @@ footer a:hover{color:var(--ink)}
       <div class="dates">1913 – 1996</div>
       <p class="lead" id="i-lead"></p>
       <div class="cta-row">
-        <a class="cta primary" href="3d.html" data-place="hero"><span id="i-cta3d">Wejdź do galerii 3D</span> <span aria-hidden="true">→</span></a>
+        <a class="cta primary" href="v2/" data-3d data-place="hero"><span id="i-cta3d">Wejdź do galerii 3D</span> <span aria-hidden="true">→</span></a>
         <a class="cta ghost" href="#kolekcja" id="i-ctabrowse">Przeglądaj katalog ↓</a>
       </div>
-      <a class="beta-v2" id="beta-v2" href="v2/" data-place="beta_v2" hidden><span class="dot" aria-hidden="true"></span><span id="i-betav2">Wersja beta: WebGPU</span> <span aria-hidden="true">→</span></a>
+      <div class="ver-sw" id="ver-sw" hidden>
+        <span id="i-ver3d">Galeria 3D</span>
+        <div class="ver-btns" role="group" aria-labelledby="i-ver3d">
+          <button type="button" data-ver="v2" id="i-vernew">Nowa · WebGPU</button><button type="button" data-ver="v1" id="i-verclassic">Klasyczna</button>
+        </div>
+      </div>
       <div class="stats">
         <div class="stat"><b id="i-count">163</b><span id="i-works">prace</span></div>
         <div class="stat"><b>9</b><span id="i-rooms">sal tematycznych</span></div>
@@ -313,7 +321,7 @@ footer a:hover{color:var(--ink)}
           <h3 id="i-bannerh"></h3>
           <p id="i-bannerp"></p>
         </div>
-        <a class="cta primary" href="3d.html" data-place="banner"><span id="i-cta3d2"></span> <span aria-hidden="true">→</span></a>
+        <a class="cta primary" href="v2/" data-3d data-place="banner"><span id="i-cta3d2"></span> <span aria-hidden="true">→</span></a>
       </div>
     </div>
   </div>
@@ -330,7 +338,7 @@ footer a:hover{color:var(--ink)}
 <footer>
   <div class="wrap">
     <div id="i-footl">© Rodzina Jana Kosno · kolekcja prywatna</div>
-    <div><a href="3d.html" id="i-foot3d">Galeria 3D</a> · <a href="#kolekcja" id="i-footcat">Katalog</a> · <a href="#" id="i-privacy"></a></div>
+    <div><a href="v2/" id="i-foot3d" data-3d data-place="footer">Galeria 3D</a> · <a href="#kolekcja" id="i-footcat">Katalog</a> · <a href="#" id="i-privacy"></a></div>
   </div>
 </footer>
 
@@ -356,6 +364,7 @@ footer a:hover{color:var(--ink)}
 import KOSNO from './assets/data.js';
 import {getLang, setLang, makeT, tGroup, tCat, tSup, tTitle} from './assets/i18n.js';
 import {initConsentBanner, resetConsent} from './assets/consent.js';
+import {getVersion, setVersion, hasWebGPU, galleryHref} from './assets/version.js';
 
 const lang = getLang();
 const t = makeT(lang);
@@ -380,9 +389,8 @@ $$('langbtn').addEventListener('click', () => {
 
 /* which CTA leads people into the 3D gallery + room chip usage */
 document.addEventListener('click', e => {
-  const a3d = e.target.closest('a[href^="3d.html"]');
-  if(a3d){ track('enter_3d_click', {placement: a3d.dataset.place || 'link'}); return; }
-  if(e.target.closest('a[href^="v2/"]')){ track('enter_3d_click', {placement: 'beta_v2', gallery_version: 'v2'}); return; }
+  const a3d = e.target.closest('a[data-3d]');
+  if(a3d){ track('enter_3d_click', {placement: a3d.dataset.place || 'link', gallery_version: getVersion()}); return; }
   const chip = e.target.closest('#roomnav .chip');
   if(chip) track('room_nav_click', {room: chip.textContent.trim()});
 });
@@ -405,8 +413,23 @@ $$('i-quotesub').textContent = t('quoteSub');
 $$('i-bannerh').textContent = t('bannerH');
 $$('i-bannerp').textContent = t('bannerP');
 $$('i-cta3d2').textContent = t('ctaEnter');
-$$('i-betav2').textContent = t('betaV2');
-if('gpu' in navigator) $$('beta-v2').hidden = false;
+/* 3D gallery version: v2 (WebGPU) by default, the classic one on request */
+function apply3dLinks(){
+  document.querySelectorAll('a[data-3d]').forEach(a => { a.href = galleryHref(a.dataset.qs || ''); });
+  document.querySelectorAll('#ver-sw button').forEach(b => b.classList.toggle('on', b.dataset.ver === getVersion()));
+}
+$$('i-ver3d').textContent = t('ver3d');
+$$('i-vernew').textContent = t('verNew');
+$$('i-verclassic').textContent = t('verClassic');
+if(hasWebGPU()) $$('ver-sw').hidden = false;
+$$('ver-sw').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ver]');
+  if(!b || b.dataset.ver === getVersion()) return;
+  setVersion(b.dataset.ver);
+  track('gallery_version_switch', {to: b.dataset.ver, place: 'landing'});
+  apply3dLinks();
+});
+apply3dLinks();
 $$('i-collh').textContent = t('collectionH');
 $$('i-footl').textContent = t('footerL');
 $$('i-foot3d').textContent = t('nav3d');
@@ -465,7 +488,7 @@ roomsEl.innerHTML = KOSNO.groups.map((g,gi) => {
       <div class="swatch" style="background:${m.wall}"></div>
       <div class="t"><small>${t('room')} ${ROMAN[gi]}</small><h3>${tGroup(lang, g)}</h3></div>
       <span class="count">${items.length} ${t('works')}</span>
-      <a class="go3d" href="3d.html?sala=${gi+1}" data-place="sala">${t('see3d')}</a>
+      <a class="go3d" href="${galleryHref(`?sala=${gi+1}`)}" data-3d data-qs="?sala=${gi+1}" data-place="sala">${t('see3d')}</a>
     </div>
     <div class="sala-bar" style="background:linear-gradient(90deg, ${m.accent}, transparent 70%)"></div>
     <div class="grid">${cards}</div>
@@ -493,7 +516,7 @@ function openLB(idx, source = 'card'){
   el('lb-sold').textContent = t('soldBadge');
   el('lb-note').hidden = true;
   const gi = KOSNO.groups.indexOf(it.group);
-  el('lb-room').innerHTML = `${t('room')} ${ROMAN[gi]} — ${tGroup(lang, it.group)} · <a href="3d.html?obraz=${it.n}" data-place="lightbox">${t('seeIn3d')}</a>`;
+  el('lb-room').innerHTML = `${t('room')} ${ROMAN[gi]} — ${tGroup(lang, it.group)} · <a href="${galleryHref(`?obraz=${it.n}`)}" data-3d data-qs="?obraz=${it.n}" data-place="lightbox">${t('seeIn3d')}</a>`;
   history.replaceState(null, '', '#obraz-' + it.n);   // shareable link to this painting
   const wasOpen = lb.classList.contains('open');
   lb.classList.add('open');

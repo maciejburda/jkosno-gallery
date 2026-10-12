@@ -1,8 +1,8 @@
 # Jan Kosno (1913–1996) — Galeria 3D
 
 Wirtualna galeria 3D z 164 obrazami Jana Kosno, pogrupowanymi w 9 sal tematycznych.
-Statyczna strona (bez bazy danych) — czysty HTML + Three.js, gotowa na GitHub Pages.
-Wersja beta `v2/` renderuje galerię przez WebGPU (TypeGPU) — patrz niżej.
+Statyczna strona (bez bazy danych), gotowa na GitHub Pages. Domyślna galeria 3D (`v2/`) renderuje
+przez WebGPU (TypeGPU); klasyczna wersja WebGL/Three.js (`3d.html`) pozostaje dostępna — patrz niżej.
 
 ## Podgląd lokalny
 
@@ -27,9 +27,9 @@ python3 -m http.server 8123
 
 ## Linkowanie
 
-- `?sala=1..9` — wejście prosto do sali (`3d.html?sala=3`)
+- `?sala=1..9` — wejście prosto do sali (`v2/?sala=3`; stare `3d.html?sala=3` też działa)
 - `?obraz=N` — link do konkretnego obrazu: na stronie głównej otwiera lightbox,
-  w `3d.html` stawia zwiedzającego przed obrazem (np. `3d.html?obraz=49`);
+  w galerii 3D stawia zwiedzającego przed obrazem (np. `v2/?obraz=49`);
   lightbox synchronizuje adres jako `#obraz-N`, więc link można po prostu skopiować z paska
 - `?lang=pl|en` — wybór języka (zapamiętywany)
 
@@ -37,7 +37,9 @@ python3 -m http.server 8123
 
 - `index.html` — strona główna: o malarzu, wejście do galerii 3D i klasyczny katalog
   wszystkich prac (ten sam podział na sale, lightbox ze szczegółami), responsywna (mobile-first)
-- `3d.html` — galeria 3D (scena, sterowanie, UI); obsługuje deep-linki `3d.html?sala=1..9`
+- `v2/` — domyślna galeria 3D (WebGPU, build z `v2-src/`); deep-linki `v2/?sala=1..9`, `v2/?obraz=N`
+- `3d.html` — klasyczna galeria 3D (Three.js/WebGL); bez wyboru wersji przekierowuje do `v2/`
+- `assets/version.js` — wybór wersji galerii 3D (v2 domyślnie, v1 na życzenie)
 - `assets/data.js` — dane 164 obrazów (tytuły PL/EN, wymiary, kategorie, status sprzedaży)
   wygenerowane z `Kosno - Obrazy/Kosno_katalog.html` i `_lista.txt`; ceny pokazywane są
   wyłącznie przy pracach sprzedanych
@@ -52,13 +54,22 @@ rozmiar jest szacowany z proporcji zdjęcia (karta pokazuje wtedy „ok. … cm"
 Sprzedane prace (obecnie № 049 „Jesienne impresje", Sopot 2021) mają czerwoną
 kropkę na tabliczce i odznakę SPRZEDANY na karcie.
 
-## Wersja v2 (beta): WebGPU / TypeGPU
+## Galeria 3D: v2 (WebGPU, domyślna) i klasyczna v1
 
-`/v2/` to nowa galeria 3D napisana od zera na [TypeGPU](https://docs.swmansion.com/TypeGPU/)
-(WebGPU, shadery w TypeScript). Logika, UI, linki, i18n i analityka są takie same jak w `3d.html`
-(zdarzenia GA mają dodatkowo `gallery_version: v2`); przeglądarki bez WebGPU są automatycznie
-przekierowywane do `3d.html` z zachowaniem parametrów. Na stronie głównej link „Wersja beta: WebGPU”
-pojawia się tylko tam, gdzie WebGPU jest dostępne.
+`/v2/` to galeria 3D napisana od zera na [TypeGPU](https://docs.swmansion.com/TypeGPU/)
+(WebGPU, shadery w TypeScript) — **domyślna wersja**. Logika, UI, linki, i18n i analityka są takie same
+jak w klasycznej `3d.html` (zdarzenia GA mają dodatkowo `gallery_version`).
+
+Przełączanie wersji:
+- strona główna: przełącznik „Galeria 3D: Nowa · WebGPU / Klasyczna” pod przyciskami (widoczny tylko
+  tam, gdzie jest WebGPU); wszystkie linki do galerii (także sale i lightbox) prowadzą do wybranej wersji,
+- w galeriach: na ekranie startowym v2 link „klasyczna wersja galerii (WebGL)”, w v1 „nowa wersja galerii (WebGPU)”,
+- wybór zapamiętywany jest w `localStorage['kosno-3d']` (`v2` / `v1`); zdarzenie GA `gallery_version_switch`.
+
+Stare linki `3d.html?sala=…` / `?obraz=…` automatycznie otwierają v2 (z tymi samymi parametrami),
+chyba że odwiedzający wybrał wersję klasyczną, adres zawiera `?legacy=1` albo przeglądarka nie ma WebGPU.
+Gdy WebGPU nie da się uruchomić, v2 sama przechodzi do `3d.html?…&legacy=1` (bez pętli przekierowań).
+Wspólna logika wyboru: `assets/version.js`.
 
 Co daje v2:
 - cała architektura w jednym draw call, wszystkie obrazy w jednym instancjonowanym (≈15× mniej CPU na klatkę),

@@ -21,7 +21,9 @@ function fallback(reason: string) {
     p.id = 'gpuerr'; p.textContent = T('gpuError');
     box.appendChild(p);
   }
-  setTimeout(() => location.replace('../3d.html' + location.search + location.hash), reason === 'forced' ? 300 : 2200);
+  // ?legacy=1 keeps 3d.html from sending the visitor straight back here
+  const qs = new URLSearchParams(location.search); qs.set('legacy', '1');
+  setTimeout(() => location.replace('../3d.html?' + qs + location.hash), reason === 'forced' ? 300 : 2200);
 }
 
 async function boot() {

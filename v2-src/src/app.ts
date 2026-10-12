@@ -26,7 +26,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
   /* ============================== language & options (v1) ============================== */
   S.invY = localStorage.getItem('kosno-invy') === '1';
   document.documentElement.lang = lang;
-  document.title = T('title3d') + ' · WebGPU beta';
+  document.title = T('title3d');
   {
     const set = (id: string, html: string) => { const e = document.getElementById(id); if (e) e.innerHTML = html; };
     set('in-kicker', T('introKicker')); set('in-sub', T('introSub', { n: publicCount })); set('in-howto', T('howto'));
@@ -45,7 +45,14 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
     const invy = $<HTMLInputElement>('invy');
     invy.checked = S.invY;
     invy.addEventListener('change', () => { S.invY = invy.checked; localStorage.setItem('kosno-invy', S.invY ? '1' : '0'); });
-    $<HTMLAnchorElement>('v1link').href = '../3d.html' + location.search;
+    /* switch to the classic (WebGL) gallery — remembered, so links keep opening it */
+    const legacy = new URLSearchParams(location.search); legacy.set('legacy', '1');
+    const v1 = $<HTMLAnchorElement>('v1link');
+    v1.href = '../3d.html?' + legacy + location.hash;
+    v1.addEventListener('click', () => {
+      try { localStorage.setItem('kosno-3d', 'v1'); } catch { /* storage blocked: ?legacy=1 still works */ }
+      track('gallery_version_switch', { to: 'v1', place: 'gallery' });
+    });
   }
 
   /* ============================== world + GPU ============================== */

@@ -4,6 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Jan Kosno (1913–1996) — Galeria 3D</title>
+<script>
+  // The WebGPU gallery (v2/) is the default. This classic (WebGL) version opens only when the visitor
+  // chose it (localStorage kosno-3d = v1), when asked with ?legacy=1, or when there is no WebGPU.
+  (function(){
+    try{
+      if(new URLSearchParams(location.search).has('legacy')) return;
+      if(localStorage.getItem('kosno-3d') === 'v1') return;
+      if(!('gpu' in navigator)) return;
+      location.replace('v2/' + location.search + location.hash);
+    }catch(e){}
+  })();
+</script>
 <!-- Google tag (gtag.js) + Consent Mode v2 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-F7E0ZDVN14"></script>
 <script>
@@ -154,6 +166,8 @@ body.locked #cross{opacity:.9}
 #privacy3d{margin-top:12px;font-size:11px;color:#8c7d70;text-decoration:none;
   border-bottom:1px dotted #8c7d70;padding-bottom:1px}
 #privacy3d:hover{color:var(--ink)}
+#v2link{margin-top:12px;font-size:12px;color:var(--amber);text-decoration:none;border-bottom:1px dotted var(--amber)}
+#v2link[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -241,6 +255,7 @@ body.locked #cross{opacity:.9}
     <div id="loadbar"><i></i></div>
     <div id="loadpct">wczytywanie…</div>
     <a id="introback" href="./">← wróć na stronę główną</a>
+    <a id="v2link" href="v2/" hidden></a>
     <a id="privacy3d" href="#"></a>
   </div>
 </div>
@@ -273,7 +288,18 @@ const track = (name, params) => { try { window.gtag?.('event', name, {transport_
   S('t3h', T('tArtH')); S('t3p', T('tArtP'));
   S('invy-l', T('invertY')); S('enterbtn', T('enter'));
   S('introback', T('back')); S('brand-sub', T('brand3dSub')); S('brand-back', T('backTop'));
-  S('hint', T('hint')); S('privacy3d', T('privacy'));
+  S('hint', T('hint')); S('privacy3d', T('privacy')); S('v2link', T('v2link'));
+  /* back to the new (WebGPU) gallery — remembered as the visitor's choice */
+  if('gpu' in navigator){
+    const v2 = document.getElementById('v2link');
+    const qs = new URLSearchParams(location.search); qs.delete('legacy');
+    v2.href = 'v2/' + (qs.toString() ? '?' + qs : '') + location.hash;
+    v2.hidden = false;
+    v2.addEventListener('click', () => {
+      try { localStorage.setItem('kosno-3d', 'v2'); } catch(_){}
+      track('gallery_version_switch', {to: 'v2', place: 'gallery'});
+    });
+  }
   document.getElementById('privacy3d').addEventListener('click', e => { e.preventDefault(); resetConsent(T); });
   initConsentBanner(T);
   document.getElementById('lang-' + lang).classList.add('on');
