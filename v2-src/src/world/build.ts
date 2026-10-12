@@ -8,8 +8,9 @@ import {
   type Placement,
 } from './layout.ts';
 import { styleOfRoom, themeOfRoom, FEATURE_WALL, SECRET_WALL, hexLinear, type RoomStyle } from './styles.ts';
-import { FRAMES } from './themes.ts';
-import { MeshBuilder, Mat, hexCol, type V3, type VertexAttrs, add, scale } from './mesh.ts';
+import { FRAMES, PicLamp } from './themes.ts';
+import { trackSpot, trackRail, pictureLamp } from './fixtures.ts';
+import { MeshBuilder, Mat, hexCol, type V3, type VertexAttrs, add, sub, scale } from './mesh.ts';
 import { LabelAtlas, drawText, drawBio, drawRug, type AtlasRect } from '../textures/labels.ts';
 import { type Lang, type T, tGroup } from '../shared/data.ts';
 import { FC, PORTAL } from '../forest/layout.ts';
@@ -18,6 +19,7 @@ import { FC, PORTAL } from '../forest/layout.ts';
 export interface LightRec {
   pos: V3; intensity: number; dir: V3; cosIn: number; center: V3; cosOut: number;
   normal: V3; depth: number; right: V3; half: [number, number]; room: number; minD2: number; reach: number;
+  seg: number; kind: number;
 }
 export interface RoomRec {
   x0: number; x1: number; lightStart: number; lightCount: number; panelStart: number; panelCount: number;
@@ -195,9 +197,30 @@ export function buildWorld(lang: Lang, T: T): World {
   key(2, '#3b82e6', 1);
   key(3, '#e8862e', SECRET_ROOM);
 
-  /* ---------- picture lights (one per hung work + the biography panel) ---------- */
+  /* ---------- picture lights (one per hung work + the biography panel) ----------
+     ceiling-spot rooms: a track spot 1.55 m out from the wall, its light pool on the wall above the frame;
+     picture-lamp rooms: a brass lamp over the frame — a short line light, brighter towards the top */
   const lights: LightRec[] = [];
   const addLight = (C: V3, N: V3, R: V3, hw: number, hh: number, depth: number, room: number, k = 1) => {
+    if (themeOfRoom(room).picLamp === PicLamp.Picture) {
+      const S = add(add(C, scale(N, 0.22)), [0, hh + 0.1, 0]);
+      const A: V3 = [C[0], C[1] + hh * 0.1, C[2]];
+      const D = sub(A, S);
+      const dist = Math.hypot(D[0], D[1], D[2]);
+      const dir: V3 = scale(D, 1 / dist);
+      let cosMin = 1;
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        const q = sub(add(add(C, scale(R, sx * hw)), [0, sy * hh, 0]), S);
+        cosMin = Math.min(cosMin, (q[0] * dir[0] + q[1] * dir[1] + q[2] * dir[2]) / Math.hypot(q[0], q[1], q[2]));
+      }
+      const cosOut = Math.max(cosMin - 0.08, -0.2);
+      lights.push({
+        pos: S, intensity: dist * dist * k * 1.15, dir, cosIn: Math.min(cosOut + 0.3, 0.995), cosOut, minD2: dist * dist * 0.5,
+        center: C, normal: N, right: R, half: [hw, hh], depth, room, reach: Math.max(hw, hh) + 0.6,
+        seg: Math.min(0.45, Math.max(0.1, hw * 0.6)), kind: PicLamp.Picture,
+      });
+      return;
+    }
     const S = add(add(C, scale(N, 1.55)), [0, WALL_H - 0.2 - C[1], 0]);
     const A: V3 = [C[0], C[1] - 0.1, C[2]];
     const D = [A[0] - S[0], A[1] - S[1], A[2] - S[2]];
@@ -210,6 +233,7 @@ export function buildWorld(lang: Lang, T: T): World {
       minD2: dist * dist * 0.85,
       center: C, normal: N, right: R, half: [hw, hh], depth, room,
       reach: Math.max(cover + 0.7, (S[1] + 0.2) * (cover + 0.42) / dist + 0.8),
+      seg: 0, kind: PicLamp.Spot,
     });
   };
   for (const p of placements) {
@@ -219,6 +243,17 @@ export function buildWorld(lang: Lang, T: T): World {
   }
   addLight([5.9, 1.68, -ROOM_W / 2], [0, 0, 1], [1, 0, 0], 1.0, 0.98, 0.03, 0, 0.8);
   lights.sort((a, b) => a.room - b.room);
+
+  /* ---------- the lamps themselves ---------- */
+  const rails = new Map<string, LightRec[]>();
+  for (const l of lights) {
+    const metal = themeOfRoom(l.room).metal;
+    if (l.kind === PicLamp.Picture) { pictureLamp(mb, l, metal); continue; }
+    trackSpot(mb, l, metal);
+    const key = `${l.room}:${l.normal.map(v => Math.round(v)).join(',')}`;
+    rails.set(key, [...(rails.get(key) ?? []), l]);
+  }
+  for (const ls of rails.values()) trackRail(mb, ls, themeOfRoom(ls[0].room).metal);
 
   /* ---------- per-room table ---------- */
   const roomRecs: RoomRec[] = rooms.map((r, i) => {

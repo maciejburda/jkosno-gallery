@@ -9,7 +9,8 @@ export const Frame = d.struct({
   ambient: d.vec3f, inForest: d.f32,
 });
 
-/* a picture light: a ceiling track spot aimed at one painting (or the bio panel);
+/* a picture light: a ceiling track spot or a picture lamp over the frame aimed at one painting (or the
+   bio panel) — the lamp's hood makes it a short line light (seg = half-length along `right`);
    the painting's frame rectangle doubles as the occluder for its soft wall shadow */
 export const Light = d.struct({
   pos: d.vec3f, intensity: d.f32,
@@ -17,7 +18,7 @@ export const Light = d.struct({
   center: d.vec3f, cosOut: d.f32,
   normal: d.vec3f, depth: d.f32,
   right: d.vec3f, minD2: d.f32,
-  half: d.vec2f, room: d.u32, pad1: d.f32,
+  half: d.vec2f, room: d.u32, seg: d.f32,
 });
 
 export const RoomInfo = d.struct({

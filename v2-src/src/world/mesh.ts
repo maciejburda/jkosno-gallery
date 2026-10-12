@@ -11,6 +11,11 @@ export const Mat = {
   Label: 5,     // canvas-drawn labels from the atlas (layer = atlas page)
   Fabric: 6,    // bench cushions
   Key: 7,       // the little keys (metal + glow)
+  Metal: 8,     // lamp bodies, legs, fittings (col.a = roughness)
+  Glass: 9,     // lit glass shades and globes (col.a = glow)
+  Paper: 10,    // paper and linen shades, alabaster (col.a = glow)
+  Leather: 11,  // button-tufted upholstery
+  Enamel: 12,   // glossy painted metal / lacquer
 } as const;
 
 export const STRIDE = 40;

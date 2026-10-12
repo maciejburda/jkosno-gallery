@@ -66,7 +66,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   const lights = root.createReadonly(d.arrayOf(Light, NL), world.lights.map(l => ({
     pos: d.vec3f(...l.pos), intensity: l.intensity, dir: d.vec3f(...l.dir), cosIn: l.cosIn,
     center: d.vec3f(...l.center), cosOut: l.cosOut, normal: d.vec3f(...l.normal), depth: l.depth,
-    right: d.vec3f(...l.right), minD2: l.minD2, half: d.vec2f(...l.half), room: l.room, pad1: 0,
+    right: d.vec3f(...l.right), minD2: l.minD2, half: d.vec2f(...l.half), room: l.room, seg: l.seg,
   })));
   const NR = world.rooms.length;
   /* small tables live in uniform buffers (keeps storage bindings per stage ≤ 8, the WebGPU baseline) */
@@ -156,7 +156,9 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     const lEnd = C.x + C.y;
     for (let k = C.x; k < lEnd; k++) {
       const lt = lights.$[gridIdx.$[k]];
-      const Lv = lt.pos - P;
+      // closest point of the lamp (a point for spots, a short segment for picture-lamp hoods)
+      const src = lt.pos + lt.right * std.clamp(std.dot(P - lt.pos, lt.right), -lt.seg, lt.seg);
+      const Lv = src - P;
       const dist2 = std.dot(Lv, Lv);
       const L = Lv * std.inverseSqrt(dist2);
       const spot = std.smoothstep(lt.cosOut, lt.cosIn, std.dot(L * -1, lt.dir));
@@ -305,11 +307,50 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       metal = 1;
       rough = 0.28;
       emissive = albedo * (0.9 + 0.5 * std.sin(F.time * 3.2));
+    } else if (mat === Mat.Metal) {
+      metal = 1;
+      rough = i.col.w;
+      ao = 1;
+    } else if (mat === Mat.Glass) {
+      // lit glass: glows from inside, a little brighter where it faces you, keeps a crisp reflection
+      const ndv = std.max(std.dot(N, V), 0);
+      emissive = albedo * (PANEL_EMIT * i.col.w) * (0.55 + 0.45 * ndv);
+      albedo = albedo * 0.15;
+      rough = 0.08;
+      specW = 1.6;
+      ao = 1;
+    } else if (mat === Mat.Paper) {
+      // paper, linen, alabaster: light shining through, with fibres
+      const fib = perlin2d.sample(d.vec2f(P.x * 90 + P.z * 31, P.y * 140)) * 0.12;
+      emissive = albedo * (PANEL_EMIT * i.col.w) * (0.92 + fib);
+      albedo = albedo * 0.6;
+      rough = 0.9;
+      specW = 0.2;
+      ao = 1;
+    } else if (mat === Mat.Leather) {
+      // button tufting: a diamond grid of buttons pulling the leather in
+      const horiz = std.abs(N.y) > 0.5;
+      const t1 = std.select(std.normalize(std.cross(d.vec3f(0, 1, 0), N) + d.vec3f(0.0001, 0, 0)), d.vec3f(1, 0, 0), horiz);
+      const t2 = std.select(d.vec3f(0, 1, 0), d.vec3f(0, 0, 1), horiz);
+      const w2 = d.vec2f(std.dot(P, t1), std.dot(P, t2)) / 0.11;
+      const f = std.fract(d.vec2f(w2.x + w2.y, w2.x - w2.y)) - 0.5;
+      const pit = std.exp(-std.dot(f, f) * 26);
+      N = std.normalize(N - ((t1 + t2) * f.x + (t1 - t2) * f.y) * (pit * 0.9));
+      albedo = albedo * (0.8 + 0.2 * (1 - pit)) * (0.95 + perlin2d.sample(P.xz * 60 + P.y * 40) * 0.06);
+      rough = 0.42;
+      specW = 0.9;
+    } else if (mat === Mat.Enamel) {
+      rough = 0.22;
+      specW = 1.2;
     }
 
     const LS = lightAt(P, N, V, room, rough);
     const hemi = std.mix(R.bounce * 0.95, F.ambient, N.y * 0.5 + 0.5);
-    const diffuse = albedo * (LS.diff + hemi * ao * LS.occl) * (1 - metal);
+    let diffuse = albedo * (LS.diff + hemi * ao * LS.occl) * (1 - metal);
+    if (mat === Mat.Fabric) {
+      // velvet: a soft sheen along the silhouette
+      diffuse = diffuse + albedo * (LS.diff + hemi * ao) * std.pow(1 - std.max(std.dot(N, V), 0), 3) * 0.7;
+    }
     const f0c = std.mix(d.vec3f(0.04), albedo, metal);
     const specular = f0c * LS.spec * specW + albedo * metal * hemi * ao * 0.35;
     let col = diffuse + specular + emissive;
