@@ -10,6 +10,8 @@ const CSS = `
   box-shadow:0 18px 50px rgba(0,0,0,.55);backdrop-filter:blur(10px);
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 #consentbar p{margin:0 0 12px;font-size:13px;line-height:1.6;color:#b3a394}
+#consentbar a{color:#eabb74;text-decoration:none;border-bottom:1px dotted rgba(234,187,116,.6)}
+#consentbar a:hover{color:#f4ecdf}
 #consentbar .cbtns{display:flex;gap:10px;flex-wrap:wrap}
 #consentbar button{border-radius:999px;padding:10px 22px;font-size:13.5px;font-weight:600;
   cursor:pointer;font-family:inherit}
