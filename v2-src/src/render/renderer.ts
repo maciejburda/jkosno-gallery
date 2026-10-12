@@ -48,7 +48,7 @@ const GOLD = d.vec3f(0.95, 0.72, 0.36);
 const PANEL_EMIT = 4.5;
 
 export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world: World, opts: {
-  tier: Tier; tex: PaintingTextures; instances: InstanceRec[]; museumInstances: number;
+  tier: Tier; tex: PaintingTextures; instances: InstanceRec[]; museumInstances: number; profile?: boolean;
 }) {
   const HIGH = opts.tier === 'high';
   const context = root.configureContext({ canvas, alphaMode: 'opaque' });
@@ -65,15 +65,20 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   const lights = root.createReadonly(d.arrayOf(Light, NL), world.lights.map(l => ({
     pos: d.vec3f(...l.pos), intensity: l.intensity, dir: d.vec3f(...l.dir), cosIn: l.cosIn,
     center: d.vec3f(...l.center), cosOut: l.cosOut, normal: d.vec3f(...l.normal), depth: l.depth,
-    right: d.vec3f(...l.right), minD2: l.minD2, half: d.vec2f(...l.half), pad1: d.vec2f(),
+    right: d.vec3f(...l.right), minD2: l.minD2, half: d.vec2f(...l.half), room: l.room, pad1: 0,
   })));
   const NR = world.rooms.length;
-  const rooms = root.createReadonly(d.arrayOf(RoomInfo, NR), world.rooms.map(r => ({
+  /* small tables live in uniform buffers (keeps storage bindings per stage ≤ 8, the WebGPU baseline) */
+  const rooms = root.createUniform(d.arrayOf(RoomInfo, NR), world.rooms.map(r => ({
     x0: r.x0, x1: r.x1, lightStart: r.lightStart, lightCount: r.lightCount, panelStart: r.panelStart, panelCount: r.panelCount,
     fscale: r.fscale, polish: r.polish, benchX: r.benchX, doorW: r.doorW, doorE: r.doorE, panelI: r.panelI,
     panelColor: d.vec3f(...r.panelColor), layer: r.layer, bounce: d.vec3f(...r.bounce), pad: 0,
   })));
-  const panels = root.createReadonly(d.arrayOf(d.vec4f, Math.max(1, world.panels.length)), world.panels.map(p => d.vec4f(...p)));
+  const panels = root.createUniform(d.arrayOf(d.vec4f, Math.max(1, world.panels.length)), world.panels.map(p => d.vec4f(...p)));
+  const G = world.grid;
+  const gridCells = root.createUniform(d.arrayOf(d.vec4u, G.n * 2), Array.from({ length: G.n * 2 }, (_, i) => d.vec4u(G.cells[i * 4], G.cells[i * 4 + 1], G.cells[i * 4 + 2], G.cells[i * 4 + 3])));
+  const gridIdx = root.createReadonly(d.arrayOf(d.u32, Math.max(1, G.lightIdx.length)), G.lightIdx.length ? G.lightIdx : [0]);
+  const GRID_X0 = G.x0, GRID_INV = 1 / G.cell, GRID_MAX = G.n - 1;
 
   const NI = Math.max(1, opts.instances.length);
   const insts = root.createReadonly(d.arrayOf(PaintingInst, NI), opts.instances.map(i => ({
@@ -82,13 +87,14 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   })));
   /* per instance: (hi slot, hi mix, thumb ready, unused) — rewritten when streaming changes */
   const dynData = new Float32Array(NI * 4);
-  const dyn = root.createReadonly(d.arrayOf(d.vec4f, NI));
+  const dyn = root.createUniform(d.arrayOf(d.vec4f, NI));
 
   const groups = root.createUniform(d.arrayOf(d.mat4x4f, 4));
   const frameMain = root.createUniform(Frame);
   const frameRefl = root.createUniform(Frame);
   const frameAcc = tgpu.accessor(Frame);
   const reflSlot = tgpu.slot(false);
+  const alphaSlot = tgpu.slot(false);   // see-through labels only (alpha-to-coverage / discard)
 
   const floors = bakeFloors(root, floorRecipes, HIGH ? 1024 : 512);
 
@@ -118,28 +124,34 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     let diff = d.vec3f(0);
     let spec = d.vec3f(0);
     let occl = d.f32(1);
+    // the fragment's grid cell (1 m along x, one list per wall side)
+    const ci = d.u32(std.clamp(std.floor((P.x - GRID_X0) * GRID_INV), 0, GRID_MAX));
+    const side = std.select(d.u32(0), d.u32(1), P.z >= 0);
+    const C = gridCells.$[ci * 2 + side];
     // ceiling panels: closest point on the 2.6 × 1.1 m panel = soft area light
-    const pEnd = R.panelStart + R.panelCount;
-    for (let i = R.panelStart; i < pEnd; i++) {
-      const pc = panels.$[i];
-      const q = d.vec3f(std.clamp(P.x, pc.x - 1.3, pc.x + 1.3), pc.y, std.clamp(P.z, pc.z - 0.55, pc.z + 0.55));
-      const Lv = q - P;
-      const dist2 = std.dot(Lv, Lv);
-      const L = Lv * std.inverseSqrt(std.max(dist2, 0.0001));
-      const emit = std.max(L.y, 0);
-      const e = R.panelColor * (R.panelI * 5.2 * emit / (dist2 + 0.9));
-      diff += e * std.max(std.dot(N, L), 0);
-      spec += e * ggxSpec(N, V, L, std.max(rough, 0.3));
+    const pEnd = C.z + C.w;
+    for (let k = C.z; k < pEnd; k++) {
+      const pc = panels.$[gridIdx.$[k]];
+      if (d.u32(pc.w) === room) {
+        const q = d.vec3f(std.clamp(P.x, pc.x - 1.3, pc.x + 1.3), pc.y, std.clamp(P.z, pc.z - 0.55, pc.z + 0.55));
+        const Lv = q - P;
+        const dist2 = std.dot(Lv, Lv);
+        const L = Lv * std.inverseSqrt(std.max(dist2, 0.0001));
+        const emit = std.max(L.y, 0);
+        const e = R.panelColor * (R.panelI * 5.2 * emit / (dist2 + 0.9));
+        diff += e * std.max(std.dot(N, L), 0);
+        spec += e * ggxSpec(N, V, L, std.max(rough, 0.3));
+      }
     }
     // picture lights (+ the soft shadow each frame casts onto its wall)
-    const lEnd = R.lightStart + R.lightCount;
-    for (let i = R.lightStart; i < lEnd; i++) {
-      const lt = lights.$[i];
+    const lEnd = C.x + C.y;
+    for (let k = C.x; k < lEnd; k++) {
+      const lt = lights.$[gridIdx.$[k]];
       const Lv = lt.pos - P;
       const dist2 = std.dot(Lv, Lv);
       const L = Lv * std.inverseSqrt(dist2);
       const spot = std.smoothstep(lt.cosOut, lt.cosIn, std.dot(L * -1, lt.dir));
-      if (spot > 0.0005) {
+      if (spot > 0.0005 && lt.room === room) {
         const toP = P - lt.center;
         const dn = std.dot(toP, lt.normal);
         let sh = d.f32(1);
@@ -198,7 +210,8 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   })((i) => {
     'use gpu';
     const M = groups.$[(i.info >> 16) & 255];
-    const wp = (M * d.vec4f(i.pos, 1)).xyz;
+    let wp = (M * d.vec4f(i.pos, 1)).xyz;
+    if (reflSlot.$) { wp = d.vec3f(wp.x, std.max(wp.y, 0), wp.z); }
     const wn = (M * d.vec4f(i.nrm, 0)).xyz;
     return { position: frameAcc.$.viewProj * d.vec4f(wp, 1), wpos: wp, wnrm: wn, uv: i.uv, col: i.col, info: i.info };
   });
@@ -214,9 +227,6 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     const R = rooms.$[room];
     const F = frameAcc.$;
     const P = i.wpos;
-    if (reflSlot.$) {
-      if (P.y < -0.01) { std.discard(); }
-    }
     const V = std.normalize(F.camPos - P);
     let N = std.normalize(i.wnrm);
     // derivatives in uniform control flow, used by the gradient samplers below
@@ -275,7 +285,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       alpha = t.w;
       rough = 0.75;
       specW = 0.25;
-      if (reflSlot.$) {
+      if (alphaSlot.$ && reflSlot.$) {
         if (alpha < 0.5) { std.discard(); }
       }
     } else if (mat === Mat.Fabric) {
@@ -377,14 +387,23 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
 
   /* ---------------- pipelines ---------------- */
   const depthMain = { format: DEPTH, depthWriteEnabled: true, depthCompare: 'greater' } as const;
+  /* Perlin gradients from a 256² lattice in a buffer instead of hashing per sample (~3× cheaper noise);
+     the lattice wraps every 256 cells — tens of metres for every frequency used on walls and floors */
+  const noiseCache = perlin2d.staticCache({ root, size: d.vec2u(256, 256) });
   const mkScene = (refl: boolean) => {
-    const cfg = root.with(frameAcc, refl ? frameRefl : frameMain).with(reflSlot, refl);
+    const cfg = root.with(frameAcc, refl ? frameRefl : frameMain).with(reflSlot, refl).pipe(noiseCache.inject());
     const primitive = { cullMode: 'back', frontFace: refl ? 'cw' : 'ccw' } as const;
-    const multisample = refl ? { count: 1 } : { count: 4, alphaToCoverageEnabled: true };
+    const multisample = refl ? { count: 1 } : { count: 4 };
     return {
+      // opaque architecture: no discard / alpha-to-coverage → hidden-surface removal stays on
       arch: cfg.createRenderPipeline({
         attribs: archLayout.attrib, vertex: archVert, fragment: archFrag,
         targets: { format: HDR }, primitive, depthStencil: depthMain, multisample,
+      }),
+      archAlpha: cfg.with(alphaSlot, true).createRenderPipeline({
+        attribs: archLayout.attrib, vertex: archVert, fragment: archFrag,
+        targets: { format: HDR }, primitive, depthStencil: depthMain,
+        multisample: refl ? { count: 1 } : { count: 4, alphaToCoverageEnabled: true },
       }),
       paint: cfg.createRenderPipeline({
         attribs: frameLayout.attrib, vertex: paintVert, fragment: paintFrag,
@@ -452,12 +471,14 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   });
 
   /* the forest is seen "through the painting": anisotropy-free Kuwahara (4 sectors) flattens the render
-     into dabs of paint, plus god rays streaming from the bright gap behind the great tree */
-  const KR = HIGH ? 3 : 2;
+     into dabs of paint, plus god rays streaming from the bright gap behind the great tree
+     (rays read a half-resolution copy of the scene) */
+  const paintLayout = tgpu.bindGroupLayout({ scene: { texture: d.texture2d(d.f32) }, rays: { texture: d.texture2d(d.f32) } });
+  const KR = HIGH ? 2 : 1;   // Kuwahara sector radius (taps = 4 × (KR+1)²)
   const painterlyFrag = tgpu.fragmentFn({ in: { uv: d.vec2f }, out: d.vec4f })((i) => {
     'use gpu';
     const P = post.$;
-    const dims = std.textureDimensions(srcLayout.$.src);
+    const dims = std.textureDimensions(paintLayout.$.scene);
     const ts = 1 / d.vec2f(dims);
     let bestMean = d.vec3f(0);
     let bestVar = d.f32(1e9);
@@ -468,7 +489,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       let m2 = d.f32(0);
       for (const yy of tgpu.unroll(std.range(KR + 1))) {
         for (const xx of tgpu.unroll(std.range(KR + 1))) {
-          const c = std.textureSampleLevel(srcLayout.$.src, sPost.$, i.uv + d.vec2f(sx * xx, sy * yy) * ts * 1.15, 0).xyz;
+          const c = std.textureSampleLevel(paintLayout.$.scene, sPost.$, i.uv + d.vec2f(sx * xx, sy * yy) * ts * 1.5, 0).xyz;
           m += c;
           const l = luminance(c);
           m2 += l * l;
@@ -486,14 +507,14 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     let col = bestMean * stroke;
     // god rays toward the sun
     let rays = d.f32(0);
-    const dirv = (P.sun - i.uv) / 24;
+    const dirv = (P.sun - i.uv) / 16;
     let suv = d.vec2f(i.uv);
-    for (const k of tgpu.unroll(std.range(24))) {
+    for (const k of tgpu.unroll(std.range(16))) {
       suv = suv + dirv;
-      const l = luminance(std.textureSampleLevel(srcLayout.$.src, sPost.$, suv, 2).xyz);
-      rays += std.max(l - 1.25, 0) * (0.94 ** k);
+      const l = luminance(std.textureSampleLevel(paintLayout.$.rays, sPost.$, suv, 0).xyz);
+      rays += std.max(l - 1.25, 0) * (0.91 ** k);
     }
-    col = col + d.vec3f(1.0, 0.82, 0.5) * rays * (P.rays / 24);
+    col = col + d.vec3f(1.0, 0.82, 0.5) * rays * (P.rays / 16);
     return d.vec4f(col, 1);
   });
 
@@ -507,8 +528,9 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   const composite = root.createRenderPipeline({ vertex: fs, fragment: compFrag, targets: { format: presentFormat } });
   const painterly = root.createRenderPipeline({ vertex: fs, fragment: painterlyFrag, targets: { format: HDR } });
 
-  /* ---------------- resolution-dependent targets ---------------- */
+  /* ---------------- resolution-dependent targets (views and bind groups cached here) ---------------- */
   const BLOOM_LEVELS = HIGH ? 5 : 4;
+  const REFL_MIPS = 5;
   type Targets = ReturnType<typeof makeTargets>;
   function makeTargets(w: number, h: number) {
     const msaa = root.createTexture({ size: [w, h], format: HDR, sampleCount: 4 }).$usage('render');
@@ -516,10 +538,13 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     const scene = root.createTexture({ size: [w, h], format: HDR }).$usage('render', 'sampled');
     const rs = HIGH ? 0.5 : 0.35;
     const rw = Math.max(16, Math.round(w * rs)), rh = Math.max(16, Math.round(h * rs));
-    const reflMips = 5;
-    const reflTex = root.createTexture({ size: [rw, rh], format: HDR, mipLevelCount: reflMips }).$usage('render', 'sampled');
+    const reflTex = root.createTexture({ size: [rw, rh], format: HDR, mipLevelCount: REFL_MIPS }).$usage('render', 'sampled');
     const reflDepth = root.createTexture({ size: [rw, rh], format: DEPTH }).$usage('render');
-    const reflRT = reflTex.createView('render', { baseMipLevel: 0, mipLevelCount: 1 });
+    // blurred mip chain for rough reflections: each level rendered from the one above (5-tap filter)
+    const reflLevels = Array.from({ length: REFL_MIPS }, (_, m) => ({
+      rt: reflTex.createView('render', { baseMipLevel: m, mipLevelCount: 1 }),
+      src: root.createBindGroup(srcLayout, { src: reflTex.createView(d.texture2d(d.f32), { baseMipLevel: m, mipLevelCount: 1 }) }),
+    }));
     const reflBG = root.createBindGroup(reflLayout, { refl: reflTex.createView(d.texture2d(d.f32)) });
     let bw = w, bh = h;
     const blooms = Array.from({ length: BLOOM_LEVELS }, () => {
@@ -528,29 +553,43 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       const view = tex.createView(d.texture2d(d.f32));
       return { tex, rt: tex.createView('render'), view, bg: root.createBindGroup(srcLayout, { src: view }) };
     });
-    const paint = root.createTexture({ size: [w, h], format: HDR }).$usage('render', 'sampled');
-    const sceneMips = root.createTexture({ size: [w, h], format: HDR, mipLevelCount: 4 }).$usage('render', 'sampled');
     const sceneView = scene.createView(d.texture2d(d.f32));
     const sceneSrcBG = root.createBindGroup(srcLayout, { src: sceneView });
     const compBG = root.createBindGroup(compLayout, { scene: sceneView, bloom: blooms[0].view });
-    const paintBG = root.createBindGroup(compLayout, { scene: paint.createView(d.texture2d(d.f32)), bloom: blooms[0].view });
-    const mipsSrcBG = root.createBindGroup(srcLayout, { src: sceneMips.createView(d.texture2d(d.f32)) });
+    // forest only: half-res copy for the god rays + the painterly result
+    const rayTex = root.createTexture({ size: [Math.max(2, w >> 1), Math.max(2, h >> 1)], format: HDR }).$usage('render', 'sampled');
+    const rayRT = rayTex.createView('render');
+    const paint = root.createTexture({ size: [w, h], format: HDR }).$usage('render', 'sampled');
     const paintRT = paint.createView('render');
-    return { w, h, msaa, depth, scene, sceneMips, reflTex, reflDepth, reflRT, reflBG, blooms, sceneSrcBG, compBG, paintBG, mipsSrcBG, paintRT,
-      destroy() { msaa.destroy(); depth.destroy(); scene.destroy(); sceneMips.destroy(); paint.destroy(); reflTex.destroy(); reflDepth.destroy(); blooms.forEach(b => b.tex.destroy()); } };
+    const paintInBG = root.createBindGroup(paintLayout, { scene: sceneView, rays: rayTex.createView(d.texture2d(d.f32)) });
+    const paintBG = root.createBindGroup(compLayout, { scene: paint.createView(d.texture2d(d.f32)), bloom: blooms[0].view });
+    return {
+      w, h, msaa, depth, scene, reflTex, reflDepth, reflLevels, reflBG, blooms, sceneSrcBG, compBG,
+      rayRT, paintRT, paintInBG, paintBG,
+      destroy() { [msaa, depth, scene, reflTex, reflDepth, rayTex, paint].forEach(x => x.destroy()); blooms.forEach(b => b.tex.destroy()); },
+    };
   }
 
   let targets: Targets | null = null;
   let renderScale = 1;
   const maxDpr = HIGH ? 2 : 1.5;
+  /* pixel budget for the 3D render (the canvas itself stays native): ~4.2 MP on desktop keeps big
+     Retina / 4K / 5K screens fast, ~1.5 MP on phones; composite upscales with a light sharpen */
+  const PIXEL_BUDGET = HIGH ? 4.2e6 : 1.5e6;
+  let budgetScale = 1;
   function ensureTargets() {
     const dpr = Math.min(devicePixelRatio || 1, maxDpr);
     const cw = Math.max(1, Math.round(innerWidth * dpr)), ch = Math.max(1, Math.round(innerHeight * dpr));
     if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
-    const w = Math.max(16, Math.round(cw * renderScale)), h = Math.max(16, Math.round(ch * renderScale));
+    budgetScale = Math.min(1, Math.sqrt(PIXEL_BUDGET / (cw * ch)));
+    const sc = Math.min(renderScale, budgetScale);
+    const w = Math.max(16, Math.round(cw * sc)), h = Math.max(16, Math.round(ch * sc));
     if (!targets || targets.w !== w || targets.h !== h) { targets?.destroy(); targets = makeTargets(w, h); }
     return targets;
   }
+
+  /* GPU frame time (?perf=1): submit → queue idle, sampled twice a second */
+  let gpuMs = 0, lastGpuSample = 0;
 
   /* ---------------- per-frame ---------------- */
   const proj = mat4.create(), view = mat4.create(), vp = mat4.create(), mirror = mat4.scaling([1, -1, 1]), tmp = mat4.create();
@@ -565,6 +604,8 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     });
   }
 
+  /* ablation switches for profiling (__gallery.renderer.dbg) */
+  const dbg = { refl: true, arch: true, paint: true, bloom: true, painterly: true };
   function render(vs: ViewState) {
     const t = ensureTargets();
     const aspect = t.w / t.h;
@@ -576,80 +617,96 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     mat4.invert(tmp, view);
     mat4.multiply(proj, view, vp);
     writeFrame(frameMain, vs, t, vp as Float32Array, vs.pos[1]);
-    const doRefl = !vs.inForest;
+    const doRefl = !vs.inForest && dbg.refl;
     if (doRefl) {
       mat4.multiply(vp, mirror, tmp);
       writeFrame(frameRefl, vs, t, tmp as Float32Array, -vs.pos[1]);
     }
     groups.write(vs.groups);
-    post.write({ exposure: vs.exposure, bloom: vs.inForest ? 0.08 : 0.055, time: vs.time % 1000, vignette: vs.inForest ? 0.3 : 0.42, sharpen: renderScale < 0.99 && !vs.inForest ? 0.35 : 0, rays: vs.sun ? vs.sun[2] : 0, sun: d.vec2f(vs.sun ? vs.sun[0] : 0.5, vs.sun ? vs.sun[1] : 0.5) });
+    post.write({ exposure: vs.exposure, bloom: vs.inForest ? 0.08 : 0.055, time: vs.time % 1000, vignette: vs.inForest ? 0.3 : 0.42, sharpen: Math.min(renderScale, budgetScale) < 0.99 && !vs.inForest ? 0.35 : 0, rays: vs.sun ? vs.sun[2] : 0, sun: d.vec2f(vs.sun ? vs.sun[0] : 0.5, vs.sun ? vs.sun[1] : 0.5) });
 
     const clear = [vs.fog.color[0], vs.fog.color[1], vs.fog.color[2], 1] as const;
+    // the whole frame is one command encoder → one submit
     const enc = root['~unstable'].createCommandEncoder();
+    const fsPass = (view: unknown, load: 'clear' | 'load' = 'clear') =>
+      enc.beginRenderPass({ colorAttachments: [{ view: view as never, loadOp: load, storeOp: 'store', clearValue: [0, 0, 0, 1] }] });
+
+    // 1. planar reflection (+ its blurred mip chain for rough floors)
     if (doRefl) {
       const rp = enc.beginRenderPass({
-        colorAttachments: [{ view: t.reflRT, loadOp: 'clear', storeOp: 'store', clearValue: clear }],
+        colorAttachments: [{ view: t.reflLevels[0].rt, loadOp: 'clear', storeOp: 'store', clearValue: clear }],
         depthStencilAttachment: { view: t.reflDepth, depthClearValue: 0, depthLoadOp: 'clear', depthStoreOp: 'discard' },
       });
-      refl.arch.with(archLayout, archBuf).with(rp).draw(world.museumVerts);
+      refl.arch.with(archLayout, archBuf).with(rp).draw(world.alphaFirst);
+      refl.archAlpha.with(archLayout, archBuf).with(rp).draw(world.museumVerts - world.alphaFirst, 1, world.alphaFirst);
       refl.paint.with(frameLayout, frameBuf).with(rp).draw(frameMesh.count, opts.museumInstances);
       extra?.(rp, true);
       rp.end();
-      enc.submit();
-      t.reflTex.generateMipmaps();
-    } else {
-      enc.submit();
+      for (let m = 1; m < REFL_MIPS; m++) {
+        const p = fsPass(t.reflLevels[m].rt);
+        downPlain.with(t.reflLevels[m - 1].src).with(p).draw(3);
+        p.end();
+      }
     }
 
-    const enc2 = root['~unstable'].createCommandEncoder();
-    let enc2b: ReturnType<typeof root['~unstable']['createCommandEncoder']> | null = null;
-    const mp = enc2.beginRenderPass({
+    // 2. main HDR pass (4× MSAA, resolved into `scene`)
+    const mp = enc.beginRenderPass({
       colorAttachments: [{ view: t.msaa, resolveTarget: t.scene, loadOp: 'clear', storeOp: 'discard', clearValue: clear }],
       depthStencilAttachment: { view: t.depth, depthClearValue: 0, depthLoadOp: 'clear', depthStoreOp: 'discard' },
     });
     if (!vs.inForest) {
-      main.arch.with(archLayout, archBuf).with(t.reflBG).with(mp).draw(world.museumVerts);
-      main.paint.with(frameLayout, frameBuf).with(mp).draw(frameMesh.count, opts.museumInstances);
+      if (dbg.arch) main.arch.with(archLayout, archBuf).with(t.reflBG).with(mp).draw(world.alphaFirst);
+      if (dbg.paint) main.paint.with(frameLayout, frameBuf).with(mp).draw(frameMesh.count, opts.museumInstances);
+      if (dbg.arch) main.archAlpha.with(archLayout, archBuf).with(t.reflBG).with(mp).draw(world.museumVerts - world.alphaFirst, 1, world.alphaFirst);
+      extra?.(mp, false);
     } else {
-      // the forest: its sky must come first, then the portal painting + caption, then the forest itself
+      // the forest: its sky first, then the portal painting + caption, then the forest itself
       extra?.(mp, false);
       main.arch.with(archLayout, archBuf).with(t.reflBG).with(mp).draw(world.vertexCount - world.museumVerts, 1, world.museumVerts);
       if (opts.instances.length > opts.museumInstances) {
         main.paint.with(frameLayout, frameBuf).with(mp).draw(frameMesh.count, opts.instances.length - opts.museumInstances, 0, opts.museumInstances);
       }
     }
-    if (!vs.inForest) extra?.(mp, false);
     mp.end();
 
-    // forest: Kuwahara + god rays read a small mip chain of the resolved scene
+    // 3. forest: half-res copy for the rays, then the painterly filter
     let compBG = t.compBG;
-    if (vs.inForest) compBG = t.paintBG;
-
-    if (vs.inForest) {
-      enc2.submit();
-      t.sceneMips.copyFrom(t.scene, { size: [t.w, t.h] });
-      t.sceneMips.generateMipmaps();
-      enc2b = root['~unstable'].createCommandEncoder();
-      const pp = enc2b.beginRenderPass({ colorAttachments: [{ view: t.paintRT, loadOp: 'clear', storeOp: 'store' }] });
-      painterly.with(t.mipsSrcBG).with(pp).draw(3);
+    const painted = vs.inForest && dbg.painterly;
+    if (painted) {
+      const rp = fsPass(t.rayRT);
+      downPlain.with(t.sceneSrcBG).with(rp).draw(3);
+      rp.end();
+      const pp = fsPass(t.paintRT);
+      painterly.with(t.paintInBG).with(pp).draw(3);
       pp.end();
+      compBG = t.paintBG;
     }
-    const enc4 = enc2b ?? enc2;
-    // bloom chain
-    for (let k = 0; k < t.blooms.length; k++) {
-      const p = enc4.beginRenderPass({ colorAttachments: [{ view: t.blooms[k].rt, loadOp: 'clear', storeOp: 'store' }] });
-      (k === 0 ? downPrefilter : downPlain).with(k === 0 ? (vs.inForest ? t.mipsSrcBG : t.sceneSrcBG) : t.blooms[k - 1].bg).with(p).draw(3);
-      p.end();
+
+    // 4. bloom chain
+    if (dbg.bloom) {
+      for (let k = 0; k < t.blooms.length; k++) {
+        const p = fsPass(t.blooms[k].rt);
+        (k === 0 ? downPrefilter : downPlain).with(k === 0 ? t.sceneSrcBG : t.blooms[k - 1].bg).with(p).draw(3);
+        p.end();
+      }
+      for (let k = t.blooms.length - 1; k > 0; k--) {
+        const p = fsPass(t.blooms[k - 1].rt, 'load');
+        upAdd.with(t.blooms[k].bg).with(p).draw(3);
+        p.end();
+      }
     }
-    for (let k = t.blooms.length - 1; k > 0; k--) {
-      const p = enc4.beginRenderPass({ colorAttachments: [{ view: t.blooms[k - 1].rt, loadOp: 'load', storeOp: 'store' }] });
-      upAdd.with(t.blooms[k].bg).with(p).draw(3);
-      p.end();
-    }
-    const cp = enc4.beginRenderPass({ colorAttachments: [{ view: context, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }] });
+
+    // 5. tonemap + grade → canvas
+    const cp = fsPass(context);
     composite.with(compBG).with(cp).draw(3);
     cp.end();
-    enc4.submit();
+    enc.submit();
+
+    if (opts.profile && performance.now() - lastGpuSample > 500) {
+      lastGpuSample = performance.now();
+      const t0 = performance.now();
+      root.device.queue.onSubmittedWorkDone().then(() => { gpuMs = performance.now() - t0; });
+    }
   }
 
   return {
@@ -659,14 +716,16 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     get renderScale() { return renderScale; },
     set renderScale(s: number) { renderScale = s; },
     get size() { return targets ? [targets.w, targets.h] : [0, 0]; },
+    get effectiveScale() { return Math.min(renderScale, budgetScale); },
     get viewProj() { return vp as Float32Array; },
+    get gpuMs() { return gpuMs; }, dbg,
     /* streaming state → GPU */
     setDyn(i: number, hiSlot: number, hiMix: number, thumbReady: number) {
       dynData[i * 4] = hiSlot; dynData[i * 4 + 1] = hiMix; dynData[i * 4 + 2] = thumbReady;
     },
     flushDyn() { dyn.write(dynData); },
     async warmup() {
-      await Promise.all([main.arch, main.paint, refl.arch, refl.paint, downPrefilter, downPlain, upAdd, composite, painterly].map(p => p.initAsync()));
+      await Promise.all([main.arch, main.archAlpha, main.paint, refl.arch, refl.archAlpha, refl.paint, downPrefilter, downPlain, upAdd, composite, painterly].map(p => p.initAsync()));
     },
     shaderCode() { return tgpu.resolve([main.arch, main.paint, composite]); },
   };

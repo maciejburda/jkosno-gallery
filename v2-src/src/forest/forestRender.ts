@@ -58,20 +58,25 @@ const SKY_GLOW = d.vec3f(1.55, 1.3, 0.78);
 const SKY_ROSE = d.vec3f(1.15, 0.86, 0.9);
 const GROUND_WARM = d.vec3f(0.62, 0.42, 0.26);
 
+/* indexed cylinder template: (sides+1)×(rings+1) unique vertices, so each is shaded once */
 function cylinderTemplate(sides: number, rings: number) {
   const v: number[] = [];
+  for (let j = 0; j <= rings; j++) for (let i = 0; i <= sides; i++) v.push(i / sides * Math.PI * 2, j / rings);
+  const idx: number[] = [];
+  const at = (i: number, j: number) => j * (sides + 1) + i;
   for (let j = 0; j < rings; j++) for (let i = 0; i < sides; i++) {
-    const a0 = i / sides * Math.PI * 2, a1 = (i + 1) / sides * Math.PI * 2, t0 = j / rings, t1 = (j + 1) / rings;
-    v.push(a0, t0, a1, t1, a1, t0, a0, t0, a0, t1, a1, t1);
+    idx.push(at(i, j), at(i + 1, j + 1), at(i + 1, j), at(i, j), at(i, j + 1), at(i + 1, j + 1));
   }
-  return new Float32Array(v);
+  return { verts: new Float32Array(v), idx };
 }
 
 export function createForestRender(root: TgpuRoot, r: Renderer, opts: {
   trunks: TrunkRec[]; bushes: [number, number, number, number][]; high: boolean;
 }) {
   const { frameAcc, frameMain, finish } = r;
-  const cfg = root.with(frameAcc, frameMain);
+  // cached Perlin gradients (256² lattice) — the bark, ground and dabs sample noise a lot
+  const noiseCache = perlin2d.staticCache({ root, size: d.vec2u(256, 256) });
+  const cfg = root.with(frameAcc, frameMain).pipe(noiseCache.inject());
 
   /* ---------- resources ---------- */
   const forestU = root.createUniform(ForestU);
@@ -89,9 +94,12 @@ export function createForestRender(root: TgpuRoot, r: Renderer, opts: {
   const atLayout = tgpu.vertexLayout(d.arrayOf(d.vec2f));
   const SIDES = opts.high ? 16 : 10, RINGS = opts.high ? 40 : 22;
   const cyl = cylinderTemplate(SIDES, RINGS);
-  const cylBuf = root.createBuffer(d.arrayOf(d.vec2f, cyl.length / 2)).$usage('vertex');
-  cylBuf.write(cyl);
-  const cylCount = cyl.length / 2;
+  const cylBuf = root.createBuffer(d.arrayOf(d.vec2f, cyl.verts.length / 2)).$usage('vertex');
+  cylBuf.write(cyl.verts);
+  const cylIdx = root.createBuffer(d.arrayOf(d.u16, cyl.idx.length), cyl.idx).$usage('index');
+  const cylCount = cyl.idx.length;
+  /* billboards: 4 corners + 6 indices instead of 6 vertices each */
+  const quadIdx = root.createBuffer(d.arrayOf(d.u16, 6), [0, 1, 2, 0, 2, 3]).$usage('index');
 
   const NDAB = opts.high ? 90000 : 22000;
   const NB = opts.bushes.length;
@@ -358,7 +366,7 @@ export function createForestRender(root: TgpuRoot, r: Renderer, opts: {
     out: { position: d.builtin.position, fuv: d.vec2f, wpos: d.vec3f, lady: d.interpolate('flat', d.u32) },
   })((i) => {
     'use gpu';
-    const c = d.arrayOf(d.vec2f, 6)([d.vec2f(-1, -1), d.vec2f(1, -1), d.vec2f(1, 1), d.vec2f(-1, -1), d.vec2f(1, 1), d.vec2f(-1, 1)]);
+    const c = d.arrayOf(d.vec2f, 4)([d.vec2f(-1, -1), d.vec2f(1, -1), d.vec2f(1, 1), d.vec2f(-1, 1)]);
     const L = ladies.$[i.iid];
     const q = c[i.vid];
     const s = L.s;
@@ -449,7 +457,7 @@ export function createForestRender(root: TgpuRoot, r: Renderer, opts: {
     out: { position: d.builtin.position, quv: d.vec2f, col: d.vec3f, wpos: d.vec3f, kind: d.interpolate('flat', d.f32) },
   })((i) => {
     'use gpu';
-    const c = d.arrayOf(d.vec2f, 6)([d.vec2f(-1, 0), d.vec2f(1, 0), d.vec2f(1, 1), d.vec2f(-1, 0), d.vec2f(1, 1), d.vec2f(-1, 1)]);
+    const c = d.arrayOf(d.vec2f, 4)([d.vec2f(-1, 0), d.vec2f(1, 0), d.vec2f(1, 1), d.vec2f(-1, 1)]);
     const D = dabsR.$[i.iid];
     const q = c[i.vid];
     const F = forestU.$;
@@ -521,7 +529,7 @@ export function createForestRender(root: TgpuRoot, r: Renderer, opts: {
     out: { position: d.builtin.position, quv: d.vec2f, kind: d.interpolate('flat', d.f32), wpos: d.vec3f, tint: d.f32 },
   })((i) => {
     'use gpu';
-    const c = d.arrayOf(d.vec2f, 6)([d.vec2f(-1, -1), d.vec2f(1, -1), d.vec2f(1, 1), d.vec2f(-1, -1), d.vec2f(1, 1), d.vec2f(-1, 1)]);
+    const c = d.arrayOf(d.vec2f, 4)([d.vec2f(-1, -1), d.vec2f(1, -1), d.vec2f(1, 1), d.vec2f(-1, 1)]);
     const P = partR.$[i.iid];
     const F = forestU.$;
     const q = c[i.vid];
@@ -575,19 +583,21 @@ export function createForestRender(root: TgpuRoot, r: Renderer, opts: {
   });
 
   const pipes = [skyPipe, trunkPipe, groundPipe, veilPipe, facePipe, dabPipe, partPipe];
+  const dbg = { sky: true, ground: true, trunks: true, ladies: true, dabs: true, particles: true };
 
   return {
     forestU, ladies,
     async warmup() { await Promise.all(pipes.map(p => p.initAsync())); },
     simulate() { stepParticles.dispatchThreads(NP); },
+    dbg,
     draw(pass: PassLike) {
-      skyPipe.with(pass).draw(3);
-      groundPipe.with(pass).draw(6);
-      trunkPipe.with(atLayout, cylBuf).with(pass).draw(cylCount, NT);
-      veilPipe.with(atLayout, cylBuf).with(pass).draw(cylCount, LADIES.length);
-      facePipe.with(pass).draw(6, LADIES.length);
-      dabPipe.with(pass).draw(6, NDAB);
-      partPipe.with(pass).draw(6, NP);
+      if (dbg.sky) skyPipe.with(pass).draw(3);
+      if (dbg.ground) groundPipe.with(pass).draw(6);
+      if (dbg.trunks) trunkPipe.with(atLayout, cylBuf).withIndexBuffer(cylIdx).with(pass).drawIndexed(cylCount, NT);
+      if (dbg.ladies) veilPipe.with(atLayout, cylBuf).withIndexBuffer(cylIdx).with(pass).drawIndexed(cylCount, LADIES.length);
+      if (dbg.ladies) facePipe.withIndexBuffer(quadIdx).with(pass).drawIndexed(6, LADIES.length);
+      if (dbg.dabs) dabPipe.withIndexBuffer(quadIdx).with(pass).drawIndexed(6, NDAB);
+      if (dbg.particles) partPipe.withIndexBuffer(quadIdx).with(pass).drawIndexed(6, NP);
     },
     counts: { trunks: NT, dabs: NDAB, particles: NP },
   };

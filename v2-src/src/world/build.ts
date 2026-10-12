@@ -19,7 +19,7 @@ export const CANVAS_Z = 0.03;    // canvas sits recessed inside the frame
 
 export interface LightRec {
   pos: V3; intensity: number; dir: V3; cosIn: number; center: V3; cosOut: number;
-  normal: V3; depth: number; right: V3; half: [number, number]; room: number; minD2: number;
+  normal: V3; depth: number; right: V3; half: [number, number]; room: number; minD2: number; reach: number;
 }
 export interface RoomRec {
   x0: number; x1: number; lightStart: number; lightCount: number; panelStart: number; panelCount: number;
@@ -27,7 +27,8 @@ export interface RoomRec {
   panelColor: V3; layer: number; bounce: V3;
 }
 export interface World {
-  mesh: ArrayBuffer; vertexCount: number; museumVerts: number; forestRoom: number;
+  mesh: ArrayBuffer; vertexCount: number; museumVerts: number; forestRoom: number; alphaFirst: number;
+  grid: { x0: number; cell: number; n: number; cells: number[]; lightIdx: number[]; panelIdx: number[] };
   lights: LightRec[]; rooms: RoomRec[]; panels: [number, number, number, number][];
   atlas: LabelAtlas;
   debugRects?: Record<string, unknown>;
@@ -142,13 +143,13 @@ export function buildWorld(lang: Lang, T: T): World {
   const panelRoom: number[] = [];
   for (const x of panelXs) {
     const ri = roomAt(x);
-    panels.push([x, WALL_H - 0.01, 0, 0]); panelRoom.push(ri);
+    panels.push([x, WALL_H - 0.01, 0, ri]); panelRoom.push(ri);
     plane(mb, [x, WALL_H - 0.004, 0], [1, 0, 0], [0, 0, 1], 2.86, 1.36, { col: hexCol('#9e968a', 0.8), mat: Mat.Matte, room: ri });
     plane(mb, [x, WALL_H - 0.009, 0], [1, 0, 0], [0, 0, 1], 2.6, 1.1, { col: hexCol('#fff4dd', 1), mat: Mat.Emissive, room: ri });
   }
   {
     const smid = (SECRET_X0 + SECRET_X1) / 2;
-    panels.push([smid, WALL_H - 0.01, 0, 0]); panelRoom.push(SECRET_ROOM);
+    panels.push([smid, WALL_H - 0.01, 0, SECRET_ROOM]); panelRoom.push(SECRET_ROOM);
     plane(mb, [smid, WALL_H - 0.009, 0], [1, 0, 0], [0, 0, 1], 2.6, 1.1, { col: hexCol('#cfd8ff', 0.8), mat: Mat.Emissive, room: SECRET_ROOM });
   }
 
@@ -168,7 +169,6 @@ export function buildWorld(lang: Lang, T: T): World {
     plane(mb, add(ce, scale(R, 0.085)), scale(N, -1), up, 0.014, 0.115, e);
     plane(mb, add(ce, scale(R, -0.085)), N, up, 0.014, 0.115, e);
   }
-  plane(mb, [0.02, 2.15, 0], [0, 0, -1], up, 5.4, 5.4 * 560 / 1600, label(titleRect, 0, { col: [1, 1, 1, 1] }), titleRect);
   plane(mb, [PORTRAIT.cx, PORTRAIT.cy - PORTRAIT.h / 2 - 0.19, PORTRAIT.cz + 0.014], [1, 0, 0], up, 0.78, 0.098, label(capRect, 0), capRect);
   {
     const bw = 2.0, bh = 2.0 * 1000 / 1024, bc: V3 = [5.9, 1.68, -ROOM_W / 2 + 0.03];
@@ -211,6 +211,7 @@ export function buildWorld(lang: Lang, T: T): World {
       cosIn: Math.cos(Math.atan(cover * 0.62 / dist)), cosOut: Math.cos(Math.atan((cover + 0.42) / dist)),
       minD2: dist * dist * 0.85,
       center: C, normal: N, right: R, half: [hw, hh], depth, room,
+      reach: Math.max(cover + 0.7, (S[1] + 0.2) * (cover + 0.42) / dist + 0.8),
     });
   };
   for (const p of placements) {
@@ -243,6 +244,11 @@ export function buildWorld(lang: Lang, T: T): World {
     };
   });
 
+  /* see-through geometry (alpha-to-coverage) last: everything before it can be drawn fully opaque,
+     which keeps the GPU's hidden-surface removal working */
+  const alphaFirst = mb.count;
+  plane(mb, [0.02, 2.15, 0], [0, 0, -1], up, 5.4, 5.4 * 560 / 1600, label(titleRect, 0, { col: [1, 1, 1, 1] }), titleRect);
+
   /* the forest of painting № 052 gets its own (light-less) room record and the caption under the portal,
      appended last so the museum pass can skip it */
   const FOREST_ROOM = roomRecs.length;
@@ -253,7 +259,30 @@ export function buildWorld(lang: Lang, T: T): World {
   const forestFirst = mb.count;
   plane(mb, [FC[0], 0.55, PORTAL[2] - 0.04], [-1, 0, 0], up, 1.5, 0.14, label(forestCap, FOREST_ROOM), forestCap);
 
+  /* 1D light grid along the enfilade (1 m cells × two wall sides): every fragment only visits the
+     picture lights and ceiling panels that can actually reach it, instead of the whole room */
+  const GRID_X0 = -1, CELL = 1;
+  const NC = Math.ceil((SECRET_X1 + 2 - GRID_X0) / CELL);
+  const cells: number[] = [], lightIdx: number[] = [], panelIdx: number[] = [];
+  for (let c = 0; c < NC; c++) {
+    const a = GRID_X0 + c * CELL, b = a + CELL;
+    const pl: number[] = [];
+    panels.forEach((p, i) => { if (Math.abs(Math.max(a, Math.min(b, p[0])) - p[0]) < 6) pl.push(i); });
+    for (const side of [0, 1]) {
+      const ll: number[] = [];
+      lights.forEach((l, i) => {
+        const facesSide = Math.abs(l.normal[2]) < 0.5 || (side === 0 ? l.normal[2] > 0 : l.normal[2] < 0);
+        if (facesSide && l.center[0] + l.reach > a && l.center[0] - l.reach < b) ll.push(i);
+      });
+      // one shared index list: [lights…][panels…] per cell
+      cells.push(lightIdx.length, ll.length, lightIdx.length + ll.length, pl.length);
+      lightIdx.push(...ll, ...pl);
+    }
+  }
+
   return {
+    grid: { x0: GRID_X0, cell: CELL, n: NC, cells, lightIdx, panelIdx },
+    alphaFirst,
     mesh: mb.bytes(), vertexCount: mb.count, museumVerts: forestFirst, forestRoom: FOREST_ROOM,
     lights, rooms: roomRecs, panels, atlas, debugRects: { rugRect, titleRect, bioRect, capRect, roomSigns },
   };

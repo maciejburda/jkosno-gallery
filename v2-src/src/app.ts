@@ -88,7 +88,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
       refs.push({ img: 52, x: PORTAL[0], z: PORTAL[2] });
     }
   }
-  const renderer = createRenderer(root, $<HTMLCanvasElement>('scene'), world, { tier, tex, instances, museumInstances });
+  const renderer = createRenderer(root, $<HTMLCanvasElement>('scene'), world, { tier, tex, instances, museumInstances, profile: q.get('perf') === '1' });
   const pool = new HiResPool(tex, tier === 'high' ? 14 : 8, tier === 'high' ? 12 : 6);
   const thumbReady = new Set<number>();
   let dynDirty = true;
@@ -345,7 +345,18 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
   /* ============================== main loop ============================== */
   let last = performance.now();
   let lastRoomIdx = -1;
-  let dtAvg = 1 / 60, scaleTimer = 0;
+  let winSum = 0, winN = 0, calm = 0;
+  const refreshSamples: number[] = [];
+  let refreshCache = 0;
+  /* the display's frame interval, from rAF deltas measured while the intro is up (fallback 60 Hz) */
+  const refresh = () => {
+    if (refreshCache) return refreshCache;
+    if (refreshSamples.length < 20) return 1 / 60;
+    const sorted = [...refreshSamples].sort((a, b) => a - b);
+    const r = Math.min(1 / 30, Math.max(1 / 240, sorted[Math.floor(sorted.length * 0.3)]));
+    if (refreshSamples.length >= 90) refreshCache = r;
+    return r;
+  };
   const pickAspect = () => aspect();
 
   function frame(now: number) {
@@ -423,6 +434,9 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
       dynDirty = false;
     }
 
+    // nothing to draw while the (opaque) intro covers the canvas — just learn the display's refresh rate
+    if (dt > 0 && refreshSamples.length < 90) refreshSamples.push(dt);
+    if (!introHidden()) return;
     if (!warm) return;
     writeGroups();
     const fogM = S.inForest && forest ? forest.fog : { color: [0.56, 0.52, 0.45] as [number, number, number], near: 36, far: 135 };
@@ -432,13 +446,18 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
       exposure: S.inForest ? 0.92 : 0.82, inForest: S.inForest, sun: S.inForest && forest ? forest.sun : undefined,
     });
 
-    /* dynamic resolution: step the internal resolution when frames run long */
-    dtAvg = dtAvg * 0.95 + dt * 0.05;
-    scaleTimer += dt;
-    if (scaleTimer > 2 && q.get('scale') === null) {
-      const s = renderer.renderScale;
-      if (dtAvg > 1 / 45 && s > 0.6) { renderer.renderScale = Math.max(0.6, s - 0.12); scaleTimer = 0; }
-      else if (dtAvg < 1 / 58 && s < 1 && scaleTimer > 5) { renderer.renderScale = Math.min(1, s + 0.12); scaleTimer = 0; }
+    /* dynamic resolution: hold the display's refresh rate (60/120 Hz…) by stepping the internal
+       resolution — down quickly when frames run long, back up slowly when there is headroom */
+    if (q.get('scale') === null && dt > 0) {
+      winSum += dt; winN++;
+      if (winN >= 40) {
+        const avg = winSum / winN;
+        winSum = 0; winN = 0;
+        const s = renderer.renderScale;
+        if (avg > refresh() * 1.22 && s > 0.62) { renderer.renderScale = Math.max(0.6, s - 0.08); calm = 0; }
+        else if (avg < refresh() * 1.06) { if (++calm >= 4 && s < 1) { renderer.renderScale = Math.min(1, s + 0.05); calm = 0; } }
+        else calm = 0;
+      }
     }
 
     if (showPerf) {
@@ -446,7 +465,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
       if (now - perfT > 500) {
         const fps = frames * 1000 / (now - perfT); frames = 0; perfT = now;
         const [w, h] = renderer.size;
-        perfEl.textContent = `WebGPU · TypeGPU\n${fps.toFixed(0)} fps · ${(1000 / fps).toFixed(1)} ms\n${w}×${h} (scale ${renderer.renderScale.toFixed(2)})\n${world.vertexCount} arch verts · ${instances.length} canvases\n${world.lights.length} picture lights`;
+        perfEl.textContent = `WebGPU · TypeGPU\n${fps.toFixed(0)} fps · ${(1000 / fps).toFixed(1)} ms (display ${(1 / refresh()).toFixed(0)} Hz)\nGPU ≈ ${renderer.gpuMs.toFixed(1)} ms / frame\n${w}×${h} (render scale ${renderer.effectiveScale.toFixed(2)})`;
       }
     }
   }
@@ -460,6 +479,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
     get state() { return { hasKey: S.hasKey, hasOrangeKey: S.hasOrangeKey, secretOpen: S.secretOpen, inForest: S.inForest, jumpY: S.jumpY, lang }; },
     get touchState() { return { moveTouch: !!moveTouch, lookTouch: !!lookTouch, tapInfo: !!tapInfo }; },
     get ladies() { return forest?.ladiesState() ?? []; },
+    get forestDbg() { return forest?.dbg; },
     get camera() { return { position: { x: S.pos[0], y: S.pos[1], z: S.pos[2] } }; },
     tap(x?: number, y?: number) {
       const hit = pick((x ?? innerWidth / 2) / innerWidth * 2 - 1, -((y ?? innerHeight / 2) / innerHeight) * 2 + 1, aspect());
@@ -474,6 +494,15 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
     forest() { enterForest(); },
     leaveForest() { exitForest(); },
     shader() { return renderer.shaderCode(); },
+    /* GPU wall time per frame: submit → queue idle, median of n (profiling) */
+    async gpuFrameMs(n = 12) {
+      const ts: number[] = [];
+      for (let k = 0; k < n; k++) {
+        await root.device.queue.onSubmittedWorkDone();
+        const t0 = performance.now(); tick(last + 16.7); await root.device.queue.onSubmittedWorkDone(); ts.push(performance.now() - t0);
+      }
+      ts.sort((a, b) => a - b); return +ts[Math.floor(n / 2)].toFixed(2);
+    },
     /* drive frames manually (automation in hidden tabs, where rAF does not fire) */
     tick(n = 1, ms = 16.7) { for (let k = 0; k < n; k++) tick(last + ms); },
     items: KOSNO.items.length,

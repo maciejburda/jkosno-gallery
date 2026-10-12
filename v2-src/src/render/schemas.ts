@@ -17,7 +17,7 @@ export const Light = d.struct({
   center: d.vec3f, cosOut: d.f32,
   normal: d.vec3f, depth: d.f32,
   right: d.vec3f, minD2: d.f32,
-  half: d.vec2f, pad1: d.vec2f,
+  half: d.vec2f, room: d.u32, pad1: d.f32,
 });
 
 export const RoomInfo = d.struct({

@@ -97,6 +97,7 @@ export function createForest(root: TgpuRoot, renderer: Renderer, high: boolean) 
     },
     ladiesState() { return lady.map(L => ({ headYaw: +L.yaw.toFixed(3), pupilX: +(L.pupil[0] * 0.011 * L.s).toFixed(4) })); },
     counts: gpu.counts,
+    dbg: gpu.dbg,
     get ready() { return ready; },
   };
 }

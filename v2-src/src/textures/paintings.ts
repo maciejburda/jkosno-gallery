@@ -3,7 +3,7 @@
    - every photo gets a layer in one 256² thumbnail array (all mips) → one instanced draw for all canvases
    - nearby works stream into a small pool of hi-res slots and cross-fade in (no texture pop)
    Mip chains are produced by the browser's high-quality image resampler (createImageBitmap). */
-import { d, type TgpuRoot } from 'typegpu';
+import { tgpu, d, std, common, type TgpuRoot } from 'typegpu';
 import { IMG_BASE } from '../shared/data.ts';
 
 export interface PaintingInstanceRef { img: number; x: number; z: number }
@@ -29,12 +29,33 @@ export function createPaintingTextures(root: TgpuRoot, imgs: number[], opts: { h
   const thumbsView = thumbs.createView(d.texture2dArray(d.f32));
   const hiView = hi.createView(d.texture2dArray(d.f32));
 
-  async function writeChain(tex: typeof thumbs | typeof hi, bmp: ImageBitmap, size: number, layer: number) {
-    for (let m = 0, s = size; s >= 1; m++, s >>= 1) {
-      const lvl = await createImageBitmap(bmp, { resizeWidth: s, resizeHeight: s, resizeQuality: s >= 64 ? 'high' : 'medium' });
-      tex.write(lvl, { mipLevel: m, origin: [0, 0, layer] });
-      lvl.close();
+  /* mip chain of ONE layer on the GPU: bilinear 2×2 box downsample, level by level
+     (the browser resamples only level 0 — far less main-thread work while walking) */
+  const mipLayout = tgpu.bindGroupLayout({ src: { texture: d.texture2dArray(d.f32) } });
+  const mipSampler = root.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+  const mipFrag = tgpu.fragmentFn({ in: { uv: d.vec2f }, out: d.vec4f })((i) => {
+    'use gpu';
+    return std.textureSampleLevel(mipLayout.$.src, mipSampler.$, i.uv, 0, 0);
+  });
+  const mipPipe = root.createRenderPipeline({ vertex: common.fullScreenTriangle, fragment: mipFrag, targets: { format: 'rgba8unorm-srgb' } });
+
+  function gpuMips(tex: typeof thumbs, layer: number, levels: number) {
+    const enc = root['~unstable'].createCommandEncoder();
+    for (let m = 0; m < levels - 1; m++) {
+      const src = tex.createView(d.texture2dArray(d.f32), { baseMipLevel: m, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
+      const dst = tex.createView('render', { baseMipLevel: m + 1, mipLevelCount: 1, baseArrayLayer: layer, arrayLayerCount: 1 });
+      const pass = enc.beginRenderPass({ colorAttachments: [{ view: dst, loadOp: 'clear', storeOp: 'store' }] });
+      mipPipe.with(root.createBindGroup(mipLayout, { src })).with(pass).draw(3);
+      pass.end();
     }
+    enc.submit();
+  }
+
+  async function writeChain(tex: typeof thumbs, bmp: ImageBitmap, size: number, layer: number) {
+    const lvl = await createImageBitmap(bmp, { resizeWidth: size, resizeHeight: size, resizeQuality: 'high' });
+    tex.write(lvl, { mipLevel: 0, origin: [0, 0, layer] });
+    lvl.close();
+    gpuMips(tex, layer, mipCount(size));
   }
 
   return {
@@ -60,7 +81,7 @@ export function createPaintingTextures(root: TgpuRoot, imgs: number[], opts: { h
 
     async loadHi(img: number, slot: number) {
       const bmp = await decode(`${IMG_BASE}l/${img}.jpg`);
-      await writeChain(hi, bmp, opts.hiSize, slot);
+      await writeChain(hi as unknown as typeof thumbs, bmp, opts.hiSize, slot);
       bmp.close();
     },
   };
@@ -97,6 +118,7 @@ export class HiResPool {
     }
     for (const img of want) {
       if (this.imgSlot.has(img) || this.loading.has(img)) continue;
+      if (this.loading.size >= 2) break;   // spread decoding/uploads over several updates
       let slot = this.slotImg.indexOf(null);
       if (slot < 0) {
         // evict the farthest resident that is no longer wanted
