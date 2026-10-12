@@ -73,7 +73,8 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   const rooms = root.createUniform(d.arrayOf(RoomInfo, NR), world.rooms.map(r => ({
     x0: r.x0, x1: r.x1, lightStart: r.lightStart, lightCount: r.lightCount, panelStart: r.panelStart, panelCount: r.panelCount,
     fscale: r.fscale, polish: r.polish, benchX: r.benchX, doorW: r.doorW, doorE: r.doorE, panelI: r.panelI,
-    panelColor: d.vec3f(...r.panelColor), layer: r.layer, bounce: d.vec3f(...r.bounce), pad: 0,
+    panelColor: d.vec3f(...r.panelColor), layer: r.layer, bounce: d.vec3f(...r.bounce), benchZ: r.benchZ,
+    benchHalf: d.vec2f(...r.benchHalf), benchR: r.benchR, pad: 0,
   })));
   const NP = Math.max(1, world.panels.length);
   const panels = root.createUniform(d.arrayOf(d.vec4f, NP), world.panels.map(p => d.vec4f(...p)));
@@ -207,7 +208,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     if (!(inDoor && R.doorW > 0.5)) { ao = ao * aoTerm(P.x - R.x0, 0.34, 0.42); }
     if (!(inDoor && R.doorE > 0.5)) { ao = ao * aoTerm(R.x1 - P.x, 0.34, 0.42); }
     if (R.benchX > -100 && P.y < 0.03) {
-      const sd = sdBox(d.vec2f(P.x - R.benchX, P.z), d.vec2f(1.1, 0.3));
+      const sd = sdBox(d.vec2f(P.x - R.benchX, P.z - R.benchZ), R.benchHalf) - R.benchR;
       ao = ao * (1 - 0.55 * std.exp(-std.max(sd, 0) / 0.16));
     }
     return ao;

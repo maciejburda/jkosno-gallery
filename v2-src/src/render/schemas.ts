@@ -28,7 +28,8 @@ export const RoomInfo = d.struct({
   fscale: d.f32, polish: d.f32,
   benchX: d.f32, doorW: d.f32, doorE: d.f32, panelI: d.f32,
   panelColor: d.vec3f, layer: d.u32,
-  bounce: d.vec3f, pad: d.f32,
+  bounce: d.vec3f, benchZ: d.f32,
+  benchHalf: d.vec2f, benchR: d.f32, pad: d.f32,     // the bench's footprint (contact shadow on the floor)
 });
 
 export const MAX_ROOMS = 12;

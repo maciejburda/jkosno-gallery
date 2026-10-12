@@ -85,13 +85,13 @@ export const LAMPS: Record<number, LampSpec> = {
   [CeilLamp.Murano]:    { y: 3.05, h: [0.45, 0.3, 0.45], lambert: 0, down: 1, up: 0.7, power: 2.4, color: '#ffe0b0' },
   [CeilLamp.Drum]:      { y: 3.15, h: [0.32, 0.14, 0.32], lambert: 0, down: 1, up: 0.3, power: 2.1, color: '#fff0d8' },
   [CeilLamp.Cartwheel]: { y: 3.3, h: [0.72, 0.08, 0.72], lambert: 0, down: 1, up: 0.55, power: 2.8, color: '#ffd8a0' },
-  [CeilLamp.Lantern]:   { y: 3.0, h: [0.13, 0.2, 0.13], lambert: 0, down: 1, up: 0.45, power: 1.5, color: '#ffe6bc' },
-  [CeilLamp.Ship]:      { y: 3.3, h: [0.11, 0.11, 0.11], lambert: 0, down: 1, up: 0.35, power: 1.5, color: '#fff0d8' },
+  [CeilLamp.Lantern]:   { y: 3.0, h: [0.13, 0.2, 0.13], lambert: 0, down: 1, up: 0.45, power: 2.4, color: '#ffe6bc' },
+  [CeilLamp.Ship]:      { y: 3.3, h: [0.11, 0.11, 0.11], lambert: 0, down: 1, up: 0.35, power: 2.5, color: '#fff0d8' },
   [CeilLamp.Laylight]:  { y: WALL_H - 0.01, h: [1.5, 0, 0.8], lambert: 1, down: 1, up: 0, power: 5.2, color: '#f8f6f0' },
-  [CeilLamp.Tulip]:     { y: 3.1, h: [0.42, 0.2, 0.42], lambert: 0, down: 1, up: 0.35, power: 2.3, color: '#ffdcaa' },
+  [CeilLamp.Tulip]:     { y: 3.1, h: [0.42, 0.2, 0.42], lambert: 0, down: 1, up: 0.35, power: 2.6, color: '#ffdcaa' },
   [CeilLamp.Alabaster]: { y: 3.3, h: [0.38, 0.1, 0.38], lambert: 0, down: 0.45, up: 1.3, power: 2.6, color: '#ffeacc' },
-  [CeilLamp.Enamel]:    { y: 3.0, h: [0.22, 0.08, 0.22], lambert: 0, down: 1, up: 0.06, power: 1.9, color: '#f6f6f2' },
-  [CeilLamp.Paper]:     { y: 2.95, h: [0.28, 0.34, 0.28], lambert: 0, down: 1, up: 0.8, power: 2.2, color: '#ffc890' },
+  [CeilLamp.Enamel]:    { y: 3.0, h: [0.22, 0.08, 0.22], lambert: 0, down: 1, up: 0.14, power: 3.0, color: '#f6f6f2' },
+  [CeilLamp.Paper]:     { y: 2.95, h: [0.28, 0.34, 0.28], lambert: 0, down: 1, up: 0.8, power: 2.8, color: '#ffc890' },
 };
 
 const matte = (hex: string, room: number, rough = 0.85): VertexAttrs => ({ col: hexCol(hex, rough), mat: Mat.Matte, room });

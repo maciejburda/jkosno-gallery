@@ -10,6 +10,7 @@ import {
 import { styleOfRoom, themeOfRoom, FEATURE_WALL, SECRET_WALL, hexLinear, type RoomStyle } from './styles.ts';
 import { FRAMES, PicLamp } from './themes.ts';
 import { trackSpot, trackRail, pictureLamp, ceilingLamp, LAMPS } from './fixtures.ts';
+import { buildBench } from './benches.ts';
 import { MeshBuilder, Mat, hexCol, type V3, type VertexAttrs, add, sub, scale } from './mesh.ts';
 import { LabelAtlas, drawText, drawBio, drawRug, type AtlasRect } from '../textures/labels.ts';
 import { type Lang, type T, tGroup } from '../shared/data.ts';
@@ -23,7 +24,8 @@ export interface LightRec {
 }
 export interface RoomRec {
   x0: number; x1: number; lightStart: number; lightCount: number; panelStart: number; panelCount: number;
-  fscale: number; polish: number; benchX: number; doorW: number; doorE: number; panelI: number;
+  fscale: number; polish: number; benchX: number; benchZ: number; benchHalf: [number, number]; benchR: number;
+  doorW: number; doorE: number; panelI: number;
   panelColor: V3; layer: number; bounce: V3;
 }
 export interface World {
@@ -182,14 +184,8 @@ export function buildWorld(lang: Lang, T: T): World {
   }
   plane(mb, [4.7, 0.006, 0], [1, 0, 0], [0, 0, -1], 4.4, 2.9, label(rugRect, 0, { col: [1, 1, 1, 1], mat: Mat.Label }), rugRect);
 
-  /* ---------- benches with a cushion in each room's accent colour ---------- */
-  for (const b of benches) {
-    const wood = { col: hexCol('#3a2c20', 0.5), mat: Mat.Wood, room: b.room };
-    mb.box([b.x, 0.44, 0], [2.2, 0.06, 0.6], wood, 'px nx py ny pz nz');
-    mb.box([b.x, 0.515, 0], [2.12, 0.09, 0.54], { col: hexCol(styles[b.room].accent, 0.85), mat: Mat.Fabric, room: b.room }, 'px nx py pz nz');
-    mb.box([b.x - 0.92, 0.205, 0], [0.12, 0.41, 0.5], wood, 'px nx pz nz');
-    mb.box([b.x + 0.92, 0.205, 0], [0.12, 0.41, 0.5], wood, 'px nx pz nz');
-  }
+  /* ---------- one bench per room, in the room's own style ---------- */
+  for (const b of benches) buildBench(mb, b, themeOfRoom(b.room).metal);
 
   /* ---------- the two keys, built in their own local space (groups 2 & 3) ---------- */
   const key = (group: number, hex: string, room: number) => {
@@ -276,9 +272,10 @@ export function buildWorld(lang: Lang, T: T): World {
     return {
       x0: r.lobby ? 0 : r.x0, x1: r.x1,
       lightStart: Math.max(0, ls), lightCount: lc, panelStart: Math.max(0, ps), panelCount: pc,
-      fscale: st.fscale, polish: fl.polish, benchX: bench ? bench.x : -1000,
+      fscale: st.fscale, polish: fl.polish, benchX: bench ? bench.x : -1000, benchZ: bench ? bench.z : 0,
+      benchHalf: bench ? bench.half : [0, 0], benchR: bench ? bench.round : 0,
       doorW: r.lobby ? 0 : 1, doorE: (i < museumRooms - 1) ? 1 : 0,
-      panelI: r.secret ? 0.7 : 1, panelColor: hexLinear(LAMPS[themeOfRoom(i).ceiling].color),
+      panelI: 1, panelColor: hexLinear(LAMPS[themeOfRoom(i).ceiling].color),
       layer: i, bounce,
     };
   });
@@ -293,7 +290,7 @@ export function buildWorld(lang: Lang, T: T): World {
   const FOREST_ROOM = roomRecs.length;
   roomRecs.push({
     x0: -1e5, x1: 1e5, lightStart: 0, lightCount: 0, panelStart: 0, panelCount: 0, fscale: 1, polish: 0,
-    benchX: -1000, doorW: 0, doorE: 0, panelI: 0, panelColor: [0, 0, 0], layer: 0, bounce: [0.62, 0.45, 0.3],
+    benchX: -1000, benchZ: 0, benchHalf: [0, 0], benchR: 0, doorW: 0, doorE: 0, panelI: 0, panelColor: [0, 0, 0], layer: 0, bounce: [0.62, 0.45, 0.3],
   });
   const forestFirst = mb.count;
   plane(mb, [FC[0], 0.55, PORTAL[2] - 0.04], [-1, 0, 0], up, 1.5, 0.14, label(forestCap, FOREST_ROOM), forestCap);

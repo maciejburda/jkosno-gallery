@@ -1,6 +1,7 @@
 /* Museum layout — a 1:1 port of the v1 layout (3d.html "layout" + secret room),
    so positions, deep links and collision behave exactly as in the classic gallery. */
 import { KOSNO, type Item } from '../shared/data.ts';
+import { THEMES, BenchKind } from './themes.ts';
 
 export const ROOM_W = 9;            // interior width (z)
 export const WALL_H = 4.2;          // wall height
@@ -100,11 +101,6 @@ export const PORTRAIT = { cx: 2.6, cy: 1.66, cz: -ROOM_W / 2, w: 0.88, h: 0.88 *
 export const KEY_BLUE = { x: rooms[1].x1 - 0.55, y: 0.05, z: ROOM_W / 2 - 0.5, rz: 0.7 };
 export const KEY_ORANGE = { x: SECRET_X0 + 4.6, y: 0.05, z: 2.1, rz: -0.4 };
 
-/* benches in the longer rooms */
-export const benches = rooms
-  .map((r, i) => ({ r, i }))
-  .filter(({ r }) => !r.lobby && !r.secret && r.x1 - r.x0 > 12)
-  .map(({ r, i }) => ({ room: i, x: (r.x0 + r.x1) / 2 }));
 
 export const publicCount = KOSNO.items.filter(i => !i.secret).length;
 
@@ -119,4 +115,31 @@ export function roomAt(x: number): number {
     if (!r.secret && x >= r.x0 - WALL_T && x < r.x1) return i;
   }
   return 0;
+}
+
+/* one bench per room, each in the room's own style (benches.ts): centred along the room — the secret
+   room's low bench stands across it, facing № 095. Footprint = half-size along / across the bench and the
+   rounding radius (the round borne is all radius); benches are solid. */
+const BENCH_FOOT: Record<number, [number, number, number]> = {
+  [BenchKind.Banquette]: [1.04, 0.31, 0.05], [BenchKind.LiveEdge]: [1.12, 0.3, 0.04], [BenchKind.Zakopane]: [1.03, 0.24, 0.03],
+  [BenchKind.Planty]: [1.0, 0.33, 0.03], [BenchKind.Deck]: [1.0, 0.28, 0.03], [BenchKind.Chrome]: [0.99, 0.3, 0.04],
+  [BenchKind.Borne]: [0, 0, 0.78], [BenchKind.Chesterfield]: [1.12, 0.34, 0.08], [BenchKind.PlanChest]: [1.0, 0.36, 0.02],
+  [BenchKind.Hinoki]: [0.8, 0.2, 0.02],
+};
+export interface Bench { room: number; x: number; z: number; rotY: number; kind: number; half: [number, number]; round: number }
+export const benches: Bench[] = [];
+rooms.forEach((r, i) => {
+  const kind = THEMES[r.lobby ? '__lobby' : r.name].bench;
+  if (kind === BenchKind.None) return;
+  const [hx, hz, rr] = BENCH_FOOT[kind];
+  const across = !!r.secret;
+  benches.push({
+    room: i, kind, round: rr,
+    x: r.secret ? SECRET_X0 + 3.3 : (r.x0 + r.x1) / 2, z: r.secret ? -1.3 : 0, rotY: across ? Math.PI / 2 : 0,
+    half: across ? [Math.max(hz - rr, 0), Math.max(hx - rr, 0)] : [Math.max(hx - rr, 0), Math.max(hz - rr, 0)],
+  });
+});
+for (const b of benches) {
+  const ex = b.half[0] + b.round, ez = b.half[1] + b.round;
+  walls.push({ x0: b.x - ex, x1: b.x + ex, z0: b.z - ez, z1: b.z + ez });
 }

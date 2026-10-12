@@ -76,8 +76,13 @@ Co daje v2:
 - podłogi pieczone na GPU (compute + `@typegpu/noise`), tynk liczony w przestrzeni świata (bez powtórzeń),
 - światło nad każdym obrazem z miękkim cieniem ramy, analityczne AO, odbicia planarne (także na telefonach),
 - HDR + MSAA 4×, PBR Neutral, bloom, dynamiczna rozdzielczość,
-- Las Trzech Pań: instancjonowane pnie, Panie z mozaiki (oczy śledzą zwiedzającego), 90 tys. pociągnięć
-  pędzla, liście i pył symulowane na GPU, filtr malarski (Kuwahara) i promienie światła.
+- każda sala urządzona po swojemu (`v2-src/src/world/themes.ts`): rama, lampy nad obrazami (mosiężne lampki
+  nad ramami albo reflektory na szynach — widoczne źródło światła), lampy sufitowe i ławka; ramy to profile
+  rozciągane w shaderze (nadal jedno wywołanie rysowania), meble i lampy w `fixtures.ts` / `benches.ts`,
+- Las Trzech Pań odtworzony z obrazu № 052: układ odmierzony z płótna (wejście pokazuje kadr obrazu, który
+  rozpada się na plamy i odsłania las), drzewo pełne twarzy z maską w rozwidleniu, wierzba głowiasta,
+  trzy Panie (malowane twarze, miedziane włosy, płaszcze z plam koloru), kora impasto pieczona raz na GPU,
+  90 tys. pociągnięć pędzla, liście, ptaki i pył symulowane na GPU, filtr malarski (Kuwahara) i promienie.
 
 Rozwój i budowanie (Node 20+):
 
