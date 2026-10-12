@@ -2,3 +2,4 @@
 # (the site uses resized copies in assets/img/)
 Kosno - Obrazy/
 .DS_Store
+node_modules/

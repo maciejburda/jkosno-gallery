@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Jan Kosno (1913–1996) — Galeria 3D · WebGPU beta</title>
+<!-- Google tag (gtag.js) + Consent Mode v2 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-F7E0ZDVN14"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  // EOG: domyślnie brak zgody, dopóki użytkownik nie zdecyduje (baner)
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: 'denied',
+    wait_for_update: 500
+  });
+  gtag('set', 'ads_data_redaction', true);
+  gtag('set', 'url_passthrough', true);
+  // przywróć wcześniejszą decyzję
+  (function(){
+    try{
+      var c = localStorage.getItem('kosno-consent');
+      if(c === 'granted' || c === 'denied'){
+        gtag('consent', 'update', {ad_storage:c, ad_user_data:c, ad_personalization:c, analytics_storage:c});
+      }
+    }catch(e){}
+  })();
+  gtag('js', new Date());
+
+  gtag('config', 'G-F7E0ZDVN14');
+</script>
+<style>:root{--bg:#15110e;--panel:#221b16;--line:#e7d6bd29;--ink:#f4ecdf;--muted:#b3a394;--amber:#e0a050;--tierAp:#e0a050;--tierA:#c58fa6;--tierB:#94a47e;--tierC:#8a93a0;--tierD:#7a6f64;--serif:Georgia,"Times New Roman",serif;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}*{box-sizing:border-box}html,body{background:var(--bg);height:100%;color:var(--ink);font-family:var(--sans);overscroll-behavior:none;margin:0;overflow:hidden}#scene{touch-action:none;width:100%;height:100%;display:block;position:fixed;inset:0}#intro{z-index:50;cursor:pointer;text-align:center;background:radial-gradient(120% 90% at 50% 0,#241c15,#15110e 70%);justify-content:center;align-items:center;padding:20px;transition:opacity .6s;display:flex;position:fixed;inset:0;overflow-y:auto}#intro.hidden{opacity:0;pointer-events:none}.ibox{width:100%;max-width:880px;padding:calc(10px + env(safe-area-inset-top)) 0 calc(10px + env(safe-area-inset-bottom));flex-direction:column;align-items:center;margin:auto;display:flex}#intro .kicker{font-family:var(--sans);letter-spacing:.35em;text-transform:uppercase;color:var(--muted);font-size:12px}#intro h1{font-family:var(--serif);letter-spacing:.02em;margin:12px 0 4px;font-size:clamp(34px,6vw,62px);font-weight:500}#intro .sub{color:var(--muted);font-size:14.5px}#intro .howto{letter-spacing:.3em;text-transform:uppercase;color:#8c7d70;margin:30px 0 4px;font-size:11px}.cards{grid-template-columns:repeat(4,1fr);gap:12px;width:100%;margin:14px 0 6px;display:grid}.cards.only-touch{grid-template-columns:repeat(3,1fr)}.icard{border:1px solid var(--line);text-align:center;background:#221b168c;border-radius:14px;padding:18px 14px 15px}.icard .ic{height:40px;color:var(--amber);justify-content:center;align-items:center;display:flex}.icard h4{letter-spacing:.12em;text-transform:uppercase;color:var(--ink);margin:12px 0 6px;font-size:12.5px;font-weight:600}.icard p{color:var(--muted);margin:0;font-size:12.5px;line-height:1.65}.icard b{color:var(--ink);border:1px solid var(--line);white-space:nowrap;border-radius:5px;margin:0 1px;padding:0 6px;font-size:11.5px;font-weight:600}#intro .enter{cursor:pointer;color:#241a0a;background:linear-gradient(140deg,#eabb74,var(--amber));font-size:16px;font-weight:600;font-family:var(--sans);border:0;border-radius:999px;margin-top:20px;padding:15px 44px;transition:transform .15s,box-shadow .25s;box-shadow:0 10px 30px #e0a0504d}#intro .enter:hover{transform:translateY(-2px);box-shadow:0 14px 38px #e0a05073}.opts{flex-wrap:wrap;justify-content:center;align-items:center;gap:20px;margin-top:20px;display:flex}.lang-sw{border:1px solid var(--line);border-radius:999px;display:flex;overflow:hidden}.lang-sw button{color:var(--muted);font-family:var(--sans);letter-spacing:.08em;cursor:pointer;background:0 0;border:0;padding:8px 15px;font-size:12px;font-weight:600}.lang-sw button.on{color:var(--ink);background:#e0a05038}.optchk{color:var(--muted);cursor:pointer;border:1px solid var(--line);border-radius:999px;align-items:center;gap:8px;padding:8px 16px;font-size:12.5px;display:flex}.optchk input{accent-color:var(--amber);cursor:pointer;width:15px;height:15px;margin:0}#keyicon{color:#6fa8e8;filter:drop-shadow(0 0 6px #508ce699);display:none;position:absolute;bottom:44px;left:20px}#okeyicon{color:#e8a05a;filter:drop-shadow(0 0 6px #e6963c99);display:none;position:absolute;bottom:44px;left:52px}@media (hover:hover){.only-touch{display:none}}@media (hover:none){.only-desktop{display:none}}@media (max-width:760px){.cards{grid-template-columns:1fr 1fr}.cards.only-touch{grid-template-columns:1fr;gap:10px}.cards.only-touch .icard{text-align:left;align-items:center;gap:16px;padding:13px 16px;display:flex}.cards.only-touch .icard .ic{flex:none;height:auto}.cards.only-touch .icard h4{margin:0 0 3px}#intro h1{margin-top:6px}}#loadbar{background:#e7d6bd1f;border-radius:2px;width:min(340px,70vw);height:3px;margin-top:26px;overflow:hidden}#loadbar i{background:var(--amber);border-radius:2px;width:0%;height:100%;transition:width .3s;display:block}#loadpct{color:var(--muted);letter-spacing:.15em;margin-top:8px;font-size:11px}#hud{pointer-events:none;z-index:20;position:fixed;inset:0}#brand{pointer-events:auto;color:inherit;line-height:1.25;text-decoration:none;display:block;position:absolute;top:16px;left:20px}#brand:hover b{color:var(--amber)}#brand .back{letter-spacing:.14em;text-transform:uppercase;color:var(--amber);opacity:.9;margin-top:3px;font-size:10px;display:block}#brand b{font-family:var(--serif);letter-spacing:.02em;font-size:18px;font-weight:500}#brand span{letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-size:10.5px;display:block}#roomnav{pointer-events:auto;position:absolute;top:14px;right:16px}#roomsel{appearance:none;color:var(--ink);border:1px solid var(--line);font-size:13px;font-family:var(--sans);cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);background:#221b16d9 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%23b3a394' fill='none' stroke-width='1.5'/></svg>") right 12px center no-repeat;border-radius:9px;padding:9px 34px 9px 14px}#hint{color:var(--muted);border:1px solid var(--line);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);white-space:nowrap;background:#15110eb8;border-radius:999px;padding:8px 18px;font-size:12.5px;transition:opacity .5s;position:absolute;bottom:16px;left:50%;transform:translate(-50%)}#hint.hidden{opacity:0}#roomtag{letter-spacing:.22em;text-transform:uppercase;color:var(--muted);font-size:11px;position:absolute;bottom:16px;left:20px}#cross{mix-blend-mode:difference;opacity:0;background:#f4ecdfe6;border-radius:50%;width:5px;height:5px;margin:-2.5px;transition:opacity .3s;position:absolute;top:50%;left:50%}body.locked #cross{opacity:.9}#vig{pointer-events:none;z-index:12;background:radial-gradient(120% 90% at 50% 45%,#0000 52%,#0c090666 100%);position:fixed;inset:0}#card{z-index:30;pointer-events:none;border:1px solid var(--line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);opacity:0;background:linear-gradient(160deg,#261e18f0,#1a1410f0);border-radius:14px;width:320px;max-width:calc(100vw - 28px);padding:16px 18px 15px;transition:opacity .22s,transform .22s;position:fixed;transform:translateY(10px)scale(.97);box-shadow:0 18px 50px #0000008c,0 2px 8px #0006}#card.show{opacity:1;transform:translateY(0)scale(1)}#card .head{align-items:center;gap:8px;margin-bottom:7px;display:flex}#card .num{letter-spacing:.14em;color:var(--muted);font-size:11px}#card .soldb{letter-spacing:.14em;color:#ffe9e2;background:#a33327;border-radius:999px;margin-left:auto;padding:3px 10px;font-size:10px;font-weight:700;box-shadow:0 0 12px #a3332780}#card h3{font-family:var(--serif);letter-spacing:.01em;margin:0 0 5px;font-size:19px;font-weight:500;line-height:1.3}#card .sub{color:var(--muted);margin-bottom:10px;font-size:12.5px}#card .price{color:var(--muted);border-top:1px solid var(--line);padding-top:10px;font-size:13px}#card .price b{color:var(--amber);letter-spacing:.02em;font-size:15px;font-weight:600}#card .note{color:var(--muted);margin-top:8px;font-size:12px;font-style:italic;line-height:1.5}#card .soldinfo{color:#e8a89b;margin-top:8px;font-size:12px}#stick{z-index:25;pointer-events:none;background:#221b164d;border:1.5px solid #e7d6bd40;border-radius:50%;width:110px;height:110px;display:none;position:fixed}#stick i{-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);background:#e7d6bd4d;border-radius:50%;width:46px;height:46px;margin:-23px;position:absolute;top:50%;left:50%}#jumpbtn{z-index:26;right:18px;bottom:calc(84px + env(safe-area-inset-bottom));width:58px;height:58px;color:var(--ink);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);touch-action:manipulation;background:#221b168c;border:1.5px solid #e7d6bd59;border-radius:50%;justify-content:center;align-items:center;padding:0;display:none;position:fixed}#jumpbtn:active{background:#e0a05066}@media (hover:none){#jumpbtn{display:flex}#hint{display:none}}#card.sheet{right:12px;bottom:calc(14px + env(safe-area-inset-bottom));width:auto;max-width:none;top:auto!important;left:12px!important}#introback{color:var(--muted);border-bottom:1px dotted var(--muted);margin-top:26px;padding-bottom:1px;font-size:12.5px;text-decoration:none}#introback:hover{color:var(--ink)}#privacy3d{color:#8c7d70;border-bottom:1px dotted #8c7d70;margin-top:12px;padding-bottom:1px;font-size:11px;text-decoration:none}#privacy3d:hover{color:var(--ink)}.beta{color:var(--amber);letter-spacing:.18em;vertical-align:1px;border:1px solid #e0a05073;border-radius:999px;margin-left:8px;padding:2px 8px;font-size:10px;display:inline-block}#v1link{color:#8c7d70;border-bottom:1px dotted #8c7d70;margin-top:10px;font-size:11px;text-decoration:none}#v1link:hover{color:var(--ink)}#perf{z-index:40;color:#d8cbb8;border:1px solid var(--line);white-space:pre;pointer-events:none;background:#15110ec7;border-radius:8px;padding:8px 10px;font:11px/1.5 ui-monospace,Menlo,monospace;position:fixed;top:64px;left:20px}#gpuerr{color:#e8a89b;max-width:520px;margin:18px auto 0;font-size:13px;line-height:1.6}</style>
+  <script type="module" crossorigin src="./assets/index-DqkP4RQE.js"></script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="hud">
+  <a id="brand" href="../" title="Wróć na stronę główną"><b>Jan Kosno</b><span id="brand-sub">1913–1996 · galeria 3D</span><span class="back" id="brand-back">← strona główna</span></a>
+  <div id="roomnav"><select id="roomsel" title="Przejdź do sali"></select></div>
+  <div id="roomtag"></div>
+  <div id="keyicon"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="4.5"/><path d="M12.5 12.5 21 21M18 18l3-3M15.5 15.5l3-3"/></svg></div>
+  <div id="okeyicon"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="4.5"/><path d="M12.5 12.5 21 21M18 18l3-3M15.5 15.5l3-3"/></svg></div>
+  <div id="hint"></div>
+  <div id="cross"></div>
+</div>
+
+<div id="card">
+  <div class="head"><span class="num"></span><span class="soldb" hidden>SPRZEDANY</span></div>
+  <h3></h3>
+  <div class="sub"></div>
+  <div class="price"></div>
+  <div class="note" hidden></div>
+  <div class="soldinfo" hidden></div>
+</div>
+
+<div id="stick"><i></i></div>
+<button id="jumpbtn" aria-label="Skok / Jump"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V6"/><path d="m6 12 6-6 6 6"/></svg></button>
+
+<div id="intro">
+  <div class="ibox">
+    <div class="kicker"><span id="in-kicker">Wirtualna galeria</span> <span class="beta">WebGPU beta</span></div>
+    <h1>Jan Kosno</h1>
+    <div class="sub" id="in-sub"></div>
+    <div class="howto" id="in-howto">Jak zwiedzać</div>
+
+    <div class="cards only-desktop">
+      <div class="icard">
+        <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="16.5" y="1" width="13" height="13" rx="3"/><rect x="1" y="16" width="13" height="13" rx="3"/><rect x="16.5" y="16" width="13" height="13" rx="3"/><rect x="32" y="16" width="13" height="13" rx="3"/></svg></div>
+        <h4 id="c1h">Chodzenie</h4>
+        <p id="c1p"><b>W A S D</b> lub strzałki.<br><b>Shift</b> — bieg, <b>Spacja</b> — skok.</p>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="22" height="34" viewBox="0 0 22 34" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="20" height="32" rx="10"/><line x1="11" y1="7" x2="11" y2="13"/></svg></div>
+        <h4 id="c2h">Rozglądanie</h4>
+        <p id="c2p">Kliknij i poruszaj myszą.<br><b>Q</b> / <b>E</b> — obrót w poziomie.</p>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="36" height="30" viewBox="0 0 36 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="34" height="28"/><rect x="6.5" y="6.5" width="23" height="17"/></svg></div>
+        <h4 id="c3h">Obrazy</h4>
+        <p id="c3p">Spójrz na obraz — szczegóły. Klik lub <b>N</b> — zbliżenie, <b>Esc</b> — powrót.</p>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="26" height="32" viewBox="0 0 26 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 31V1h24v30"/><path d="M7 31V8h12v23"/></svg></div>
+        <h4 id="c4h">Sale</h4>
+        <p id="c4p">Klawisze <b>1</b>–<b>9</b> albo lista w prawym górnym rogu.</p>
+      </div>
+    </div>
+
+    <div class="cards only-touch">
+      <div class="icard">
+        <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="44" height="28" rx="5"/><circle cx="13.5" cy="15" r="7.5" stroke-dasharray="2.6 2.6"/><circle cx="13.5" cy="15" r="2.6" fill="currentColor" stroke="none"/></svg></div>
+        <div><h4 id="t1h">Chodzenie</h4>
+        <p id="t1p">Przeciągnij palcem po <u>lewej</u> połowie ekranu — pojawi się joystick.</p></div>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="44" height="28" rx="5"/><path d="M27 15h14"/><path d="M30 11.5 26.5 15l3.5 3.5"/><path d="M38 11.5 41.5 15 38 18.5"/></svg></div>
+        <div><h4 id="t2h">Rozglądanie</h4>
+        <p id="t2p">Przeciągaj palcem po <u>prawej</u> połowie ekranu.</p></div>
+      </div>
+      <div class="icard">
+        <div class="ic"><svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="16" cy="16" r="3.5" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="9" opacity=".55"/><circle cx="16" cy="16" r="14" opacity=".25"/></svg></div>
+        <div><h4 id="t3h">Obrazy i sale</h4>
+        <p id="t3p">Dotknij obrazu — szczegóły i zbliżenie. Sale wybierzesz z listy u góry ekranu.</p></div>
+      </div>
+    </div>
+
+    <div class="opts">
+      <div class="lang-sw">
+        <button id="lang-pl" type="button">PL</button>
+        <button id="lang-en" type="button">EN</button>
+      </div>
+      <label class="optchk"><input type="checkbox" id="invy"><span id="invy-l">Odwrócona oś Y (mysz)</span></label>
+    </div>
+    <button class="enter" id="enterbtn">Wejdź do galerii</button>
+    <div id="loadbar"><i></i></div>
+    <div id="loadpct">wczytywanie…</div>
+    <a id="introback" href="../">← wróć na stronę główną</a>
+    <a id="privacy3d" href="#"></a>
+    <a id="v1link" href="../3d.html"></a>
+  </div>
+</div>
+
+<div id="perf" hidden></div>
+</body>
+</html>

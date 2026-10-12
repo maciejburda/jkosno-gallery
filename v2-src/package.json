@@ -1,0 +1,28 @@
+{
+  "name": "kosno-gallery-v2",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Galeria Jana Kosno — 3D v2 renderer (TypeGPU / WebGPU). Builds into ../v2/.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@typegpu/noise": "0.12.1",
+    "@typegpu/sdf": "0.12.1",
+    "typegpu": "0.12.7",
+    "wgpu-matrix": "3.4.2"
+  },
+  "devDependencies": {
+    "@webgpu/types": "0.1.74",
+    "eslint": "9.39.5",
+    "eslint-plugin-typegpu": "0.12.1",
+    "typescript": "npm:tsover@6.0.2",
+    "typescript-eslint": "8.71.1",
+    "unplugin-typegpu": "0.12.5",
+    "vite": "8.3.4"
+  }
+}

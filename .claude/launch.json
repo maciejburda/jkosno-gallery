@@ -4,9 +4,22 @@
     {
       "name": "gallery",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "python3 -m http.server ${PORT:-8123}"],
+      "runtimeArgs": [
+        "-c",
+        "python3 -m http.server ${PORT:-8123}"
+      ],
       "autoPort": true,
       "port": 8123
+    },
+    {
+      "name": "gallery-v2",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd v2-src && npx vite --port ${PORT:-5180} --strictPort --host 127.0.0.1"
+      ],
+      "autoPort": true,
+      "port": 5180
     }
   ]
 }

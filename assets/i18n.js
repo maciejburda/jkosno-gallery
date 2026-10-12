@@ -77,6 +77,9 @@ pl: {
   forestBack:'Dotknij ramy, aby wrócić do galerii', forestName:'Las Trzech Pań',
   consentText:'Ta strona używa Google Analytics (pliki cookie) do pomiaru odwiedzin oraz personalizacji i pomiaru reklam. Zobacz, <a href="https://policies.google.com/technologies/partner-sites?hl=pl" target="_blank" rel="noopener">jak Google wykorzystuje dane</a>. Decyzję zmienisz w każdej chwili — „Ustawienia prywatności” na dole strony.',
   consentAccept:'Zgadzam się', consentDeny:'Tylko niezbędne', privacy:'Ustawienia prywatności',
+  // v2 (WebGPU beta)
+  betaV2:'Wersja beta: WebGPU', v1link:'klasyczna wersja galerii (WebGL)',
+  gpuError:'Nie udało się uruchomić WebGPU na tym urządzeniu. Przechodzimy do klasycznej wersji galerii…',
 },
 en: {
   soldBadge:'SOLD', sold:'Sold', approx:'c.', works:'works', room:'Room', entrance:'Entrance',
@@ -123,6 +126,8 @@ en: {
   forestBack:'Touch the frame to return to the gallery', forestName:'Forest of the Three Ladies',
   consentText:'This site uses Google Analytics cookies to measure visits and for ad personalization and measurement. See <a href="https://policies.google.com/technologies/partner-sites?hl=en" target="_blank" rel="noopener">how Google uses data</a>. You can change your choice at any time — “Privacy settings” at the bottom of the page.',
   consentAccept:'Accept', consentDeny:'Essential only', privacy:'Privacy settings',
+  betaV2:'Beta: WebGPU', v1link:'classic version of the gallery (WebGL)',
+  gpuError:'WebGPU could not start on this device. Switching to the classic gallery…',
 }};
 
 export function makeT(lang){
