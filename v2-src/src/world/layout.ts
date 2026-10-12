@@ -100,11 +100,6 @@ export const PORTRAIT = { cx: 2.6, cy: 1.66, cz: -ROOM_W / 2, w: 0.88, h: 0.88 *
 export const KEY_BLUE = { x: rooms[1].x1 - 0.55, y: 0.05, z: ROOM_W / 2 - 0.5, rz: 0.7 };
 export const KEY_ORANGE = { x: SECRET_X0 + 4.6, y: 0.05, z: 2.1, rz: -0.4 };
 
-/* recessed ceiling light panels every 4.2 m (+ one cool panel in the secret room) */
-export const PANEL_X0 = 3.6, PANEL_STEP = 4.2;
-export const panelXs: number[] = [];
-for (let x = PANEL_X0; x < END_X - 2; x += PANEL_STEP) panelXs.push(x);
-
 /* benches in the longer rooms */
 export const benches = rooms
   .map((r, i) => ({ r, i }))

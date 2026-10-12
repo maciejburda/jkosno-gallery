@@ -3,13 +3,13 @@
    - the picture-light table, the per-room table and the ceiling-panel list
    Geometry follows v1 (3d.html "build architecture" … "benches") with the same dimensions. */
 import {
-  rooms, placements, END_X, WALL_H, WALL_T, ROOM_W, DOOR_W, DOOR_H, SECRET_ROOM, SECRET_X0, SECRET_X1,
-  panelXs, benches, ROMAN, roomsData, publicCount, normalOf, rightOf, roomAt, PORTRAIT,
+  rooms, placements, END_X, WALL_H, WALL_T, ROOM_W, DOOR_W, DOOR_H, SECRET_ROOM, SECRET_X1,
+  benches, ROMAN, roomsData, publicCount, normalOf, rightOf, PORTRAIT,
   type Placement,
 } from './layout.ts';
 import { styleOfRoom, themeOfRoom, FEATURE_WALL, SECRET_WALL, hexLinear, type RoomStyle } from './styles.ts';
 import { FRAMES, PicLamp } from './themes.ts';
-import { trackSpot, trackRail, pictureLamp } from './fixtures.ts';
+import { trackSpot, trackRail, pictureLamp, ceilingLamp, LAMPS } from './fixtures.ts';
 import { MeshBuilder, Mat, hexCol, type V3, type VertexAttrs, add, sub, scale } from './mesh.ts';
 import { LabelAtlas, drawText, drawBio, drawRug, type AtlasRect } from '../textures/labels.ts';
 import { type Lang, type T, tGroup } from '../shared/data.ts';
@@ -30,6 +30,7 @@ export interface World {
   mesh: ArrayBuffer; vertexCount: number; museumVerts: number; forestRoom: number; alphaFirst: number;
   grid: { x0: number; cell: number; n: number; cells: number[]; lightIdx: number[]; panelIdx: number[] };
   lights: LightRec[]; rooms: RoomRec[]; panels: [number, number, number, number][];
+  panelShape: [number, number, number, number][]; panelEmit: [number, number, number, number][];
   atlas: LabelAtlas;
   debugRects?: Record<string, unknown>;
 }
@@ -138,20 +139,24 @@ export function buildWorld(lang: Lang, T: T): World {
     plane(mb, [SECRET_X1, WALL_H / 2, 0], [0, 0, 1], up, ROOM_W, WALL_H, { col: hexCol(SECRET_WALL, 0.9), mat: Mat.Plaster, room: SECRET_ROOM });
   }
 
-  /* ---------- recessed ceiling light panels ---------- */
+  /* ---------- ceiling lamps: each room its own design, evenly spaced along the room ----------
+     every lamp is also a soft light: a glowing box (panel), with its share of light going down / up */
   const panels: [number, number, number, number][] = [];
+  const panelShape: [number, number, number, number][] = [];
+  const panelEmit: [number, number, number, number][] = [];
   const panelRoom: number[] = [];
-  for (const x of panelXs) {
-    const ri = roomAt(x);
-    panels.push([x, WALL_H - 0.01, 0, ri]); panelRoom.push(ri);
-    plane(mb, [x, WALL_H - 0.004, 0], [1, 0, 0], [0, 0, 1], 2.86, 1.36, { col: hexCol('#9e968a', 0.8), mat: Mat.Matte, room: ri });
-    plane(mb, [x, WALL_H - 0.009, 0], [1, 0, 0], [0, 0, 1], 2.6, 1.1, { col: hexCol('#fff4dd', 1), mat: Mat.Emissive, room: ri });
-  }
-  {
-    const smid = (SECRET_X0 + SECRET_X1) / 2;
-    panels.push([smid, WALL_H - 0.01, 0, SECRET_ROOM]); panelRoom.push(SECRET_ROOM);
-    plane(mb, [smid, WALL_H - 0.009, 0], [1, 0, 0], [0, 0, 1], 2.6, 1.1, { col: hexCol('#cfd8ff', 0.8), mat: Mat.Emissive, room: SECRET_ROOM });
-  }
+  rooms.forEach((r, i) => {
+    const th = themeOfRoom(i), spec = LAMPS[th.ceiling];
+    const x0 = r.lobby ? 0 : r.x0, len = r.x1 - x0;
+    const n = Math.max(1, Math.round(len / th.spacing));
+    for (let k = 0; k < n; k++) {
+      const x = x0 + len * (k + 0.5) / n;
+      panels.push([x, spec.y, 0, i]); panelRoom.push(i);
+      panelShape.push([spec.h[0], spec.h[1], spec.h[2], spec.lambert]);
+      panelEmit.push([spec.down, spec.up, spec.power * Math.min(1.6, (len / n) / 4.2), 0]);
+      ceilingLamp(mb, th.ceiling, x, 0, i, th.metal);
+    }
+  });
 
   /* ---------- labels: room signs, plaques, lobby title, bio, caption, rug ---------- */
   rooms.forEach((r, i) => {
@@ -273,7 +278,7 @@ export function buildWorld(lang: Lang, T: T): World {
       lightStart: Math.max(0, ls), lightCount: lc, panelStart: Math.max(0, ps), panelCount: pc,
       fscale: st.fscale, polish: fl.polish, benchX: bench ? bench.x : -1000,
       doorW: r.lobby ? 0 : 1, doorE: (i < museumRooms - 1) ? 1 : 0,
-      panelI: r.secret ? 0.55 : 1, panelColor: r.secret ? hexLinear('#cfd8ff') : hexLinear('#fff4dd'),
+      panelI: r.secret ? 0.7 : 1, panelColor: hexLinear(LAMPS[themeOfRoom(i).ceiling].color),
       layer: i, bounce,
     };
   });
@@ -318,7 +323,7 @@ export function buildWorld(lang: Lang, T: T): World {
     grid: { x0: GRID_X0, cell: CELL, n: NC, cells, lightIdx, panelIdx },
     alphaFirst,
     mesh: mb.bytes(), vertexCount: mb.count, museumVerts: forestFirst, forestRoom: FOREST_ROOM,
-    lights, rooms: roomRecs, panels, atlas, debugRects: { rugRect, titleRect, bioRect, capRect, roomSigns },
+    lights, rooms: roomRecs, panels, panelShape, panelEmit, atlas, debugRects: { rugRect, titleRect, bioRect, capRect, roomSigns },
   };
 }
 

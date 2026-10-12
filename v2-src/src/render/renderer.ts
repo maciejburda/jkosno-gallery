@@ -75,7 +75,10 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     fscale: r.fscale, polish: r.polish, benchX: r.benchX, doorW: r.doorW, doorE: r.doorE, panelI: r.panelI,
     panelColor: d.vec3f(...r.panelColor), layer: r.layer, bounce: d.vec3f(...r.bounce), pad: 0,
   })));
-  const panels = root.createUniform(d.arrayOf(d.vec4f, Math.max(1, world.panels.length)), world.panels.map(p => d.vec4f(...p)));
+  const NP = Math.max(1, world.panels.length);
+  const panels = root.createUniform(d.arrayOf(d.vec4f, NP), world.panels.map(p => d.vec4f(...p)));
+  const panelShape = root.createUniform(d.arrayOf(d.vec4f, NP), world.panelShape.map(p => d.vec4f(...p)));
+  const panelEmit = root.createUniform(d.arrayOf(d.vec4f, NP), world.panelEmit.map(p => d.vec4f(...p)));
   const G = world.grid;
   const gridCells = root.createUniform(d.arrayOf(d.vec4u, G.n * 2), Array.from({ length: G.n * 2 }, (_, i) => d.vec4u(G.cells[i * 4], G.cells[i * 4 + 1], G.cells[i * 4 + 2], G.cells[i * 4 + 3])));
   const gridIdx = root.createReadonly(d.arrayOf(d.u32, Math.max(1, G.lightIdx.length)), G.lightIdx.length ? G.lightIdx : [0]);
@@ -137,17 +140,21 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     const ci = d.u32(std.clamp(std.floor((P.x - GRID_X0) * GRID_INV), 0, GRID_MAX));
     const side = std.select(d.u32(0), d.u32(1), P.z >= 0);
     const C = gridCells.$[ci * 2 + side];
-    // ceiling panels: closest point on the 2.6 × 1.1 m panel = soft area light
+    // ceiling lamps: closest point of the lamp's glowing box = a soft light; laylights shine only down
+    // (Lambert), pendants and chandeliers all around, with their own share of light going up
     const pEnd = C.z + C.w;
     for (let k = C.z; k < pEnd; k++) {
-      const pc = panels.$[gridIdx.$[k]];
+      const pi = gridIdx.$[k];
+      const pc = panels.$[pi];
       if (d.u32(pc.w) === room) {
-        const q = d.vec3f(std.clamp(P.x, pc.x - 1.3, pc.x + 1.3), pc.y, std.clamp(P.z, pc.z - 0.55, pc.z + 0.55));
+        const sh = panelShape.$[pi];
+        const em = panelEmit.$[pi];
+        const q = std.clamp(P, pc.xyz - sh.xyz, pc.xyz + sh.xyz);
         const Lv = q - P;
         const dist2 = std.dot(Lv, Lv);
         const L = Lv * std.inverseSqrt(std.max(dist2, 0.0001));
-        const emit = std.max(L.y, 0);
-        const e = R.panelColor * (R.panelI * 5.2 * emit / (dist2 + 0.9));
+        const emit = std.select(em.y, em.x, L.y >= 0) * std.mix(1, std.max(L.y, 0), sh.w);
+        const e = R.panelColor * (R.panelI * em.z * emit / (dist2 + 0.9));
         diff += e * std.max(std.dot(N, L), 0);
         spec += e * ggxSpec(N, V, L, std.max(rough, 0.3));
       }
