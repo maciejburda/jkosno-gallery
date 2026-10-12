@@ -13,12 +13,14 @@ import { createForestRender } from './forestRender.ts';
 
 export function createForest(root: TgpuRoot, renderer: Renderer, high: boolean) {
   const lay = forestLayout(high ? 150 : 90);
-  const gpu = createForestRender(root, renderer, { trunks: lay.trunks, bushes: lay.bushes, high });
+  const gpu = createForestRender(root, renderer, { trunks: lay.trunks, twigs: lay.twigs, bushes: lay.bushes, high });
   let ready = false;
   gpu.warmup().catch(err => console.warn('forest warmup', err)).finally(() => { ready = true; });
 
   const lady = LADIES.map(([x, z, s], i) => ({ x, z, s, yaw: 0, blinkAt: 2 + i * 1.7, blink: 0, ph: i * 2.1, pupil: [0, 0] as [number, number] }));
   let time = 0;
+  /* stepping into the painting: № 052 itself fills the view first, then dissolves into the forest */
+  let artT = -1;
   const inv = new Float32Array(16);
   const sun: [number, number, number] = [0.5, 0.3, 0];
 
@@ -52,18 +54,26 @@ export function createForest(root: TgpuRoot, renderer: Renderer, high: boolean) 
   }
 
   return {
-    fog: { color: [0.9, 0.82, 0.55] as [number, number, number], near: 14, far: 60 },
+    fog: { color: [1.42, 1.3, 0.94] as [number, number, number], near: 6, far: 42 },
     ambient: [1.0, 0.94, 0.8] as [number, number, number],
     sun,
     enter() {
       S.inForest = true; S.jumpY = 0; S.vy = 0;
       S.pos = [...SPAWN]; S.yaw = 0; S.pitch = 0; S.vel = [0, 0];
+      artT = 0;
       setForestWalls(lay.walls);
       renderer.setExtension((pass, refl) => { if (!refl && S.inForest && ready) gpu.draw(pass); });
     },
-    exit() { S.inForest = false; },
+    exit() { S.inForest = false; artT = -1; },
+    /* 1 = only the painting, 0 = only the forest */
+    get artMix() {
+      if (artT < 0) return 0;
+      const k = Math.min(1, Math.max(0, (artT - 0.7) / 2.4));
+      return 1 - k * k * (3 - 2 * k);
+    },
     update(dt: number, aspect: number) {
       time += dt;
+      if (artT >= 0) { artT += Math.min(dt, 0.05); if (artT > 3.2) artT = -1; }
       for (const L of lady) {
         // blink every few seconds
         if (time > L.blinkAt) {

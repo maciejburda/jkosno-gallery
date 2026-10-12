@@ -35,6 +35,7 @@ export interface ViewState {
   exposure: number;
   inForest: boolean;
   sun?: [number, number, number];   // forest: sun position in uv + ray strength
+  art?: { mix: number; slot: number; layer: number; aspect: number };   // forest: painting № 052 dissolving into it
 }
 
 /* extra draws recorded into the main / reflection passes (the forest plugs in here) */
@@ -112,7 +113,10 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   const reflLayout = tgpu.bindGroupLayout({ refl: { texture: d.texture2d(d.f32) } });
   const srcLayout = tgpu.bindGroupLayout({ src: { texture: d.texture2d(d.f32) } });
   const compLayout = tgpu.bindGroupLayout({ scene: { texture: d.texture2d(d.f32) }, bloom: { texture: d.texture2d(d.f32) } });
-  const PostU = d.struct({ exposure: d.f32, bloom: d.f32, time: d.f32, vignette: d.f32, sharpen: d.f32, rays: d.f32, sun: d.vec2f });
+  const PostU = d.struct({
+    exposure: d.f32, bloom: d.f32, time: d.f32, vignette: d.f32, sharpen: d.f32, rays: d.f32, sun: d.vec2f,
+    artMix: d.f32, artSlot: d.f32, artLayer: d.f32, artAspect: d.f32,
+  });
   const post = root.createUniform(PostU);
 
   /* ---------------- lighting ---------------- */
@@ -473,7 +477,10 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   /* the forest is seen "through the painting": anisotropy-free Kuwahara (4 sectors) flattens the render
      into dabs of paint, plus god rays streaming from the bright gap behind the great tree
      (rays read a half-resolution copy of the scene) */
-  const paintLayout = tgpu.bindGroupLayout({ scene: { texture: d.texture2d(d.f32) }, rays: { texture: d.texture2d(d.f32) } });
+  const paintLayout = tgpu.bindGroupLayout({
+    scene: { texture: d.texture2d(d.f32) }, rays: { texture: d.texture2d(d.f32) },
+    artLo: { texture: d.texture2dArray(d.f32) }, artHi: { texture: d.texture2dArray(d.f32) },
+  });
   const KR = HIGH ? 2 : 1;   // Kuwahara sector radius (taps = 4 × (KR+1)²)
   const painterlyFrag = tgpu.fragmentFn({ in: { uv: d.vec2f }, out: d.vec4f })((i) => {
     'use gpu';
@@ -515,6 +522,21 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       rays += std.max(l - 1.25, 0) * (0.91 ** k);
     }
     col = col + d.vec3f(1.0, 0.82, 0.5) * rays * (P.rays / 16);
+    // no true darks in the painting: lift the shadows towards warm mid-tones
+    col = col * 0.94 + d.vec3f(0.05, 0.04, 0.02);
+    // stepping into the painting: № 052 (fit to the height) breaks up into brush-shaped flakes
+    // that fall away to reveal the forest behind it
+    if (P.artMix > 0.001) {
+      const pw = P.artAspect * d.f32(dims.y) / d.f32(dims.x);
+      const puv = d.vec2f((i.uv.x - 0.5) / pw + 0.5, i.uv.y);
+      const lo = std.textureSampleLevel(paintLayout.$.artLo, sPost.$, puv, d.u32(P.artLayer), 0).xyz;
+      const hi = std.textureSampleLevel(paintLayout.$.artHi, sPost.$, puv, d.u32(std.max(P.artSlot, 0)), 0).xyz;
+      const art = std.select(lo, hi, P.artSlot >= 0) / std.max(P.exposure, 0.05);
+      const m = std.clamp(0.5 + perlin2d.sample(puv * d.vec2f(6, 2.6)) * 0.6 + perlin2d.sample(puv * d.vec2f(34, 9) + 4.1) * 0.3, 0, 1);
+      const inside = puv.x > 0 && puv.x < 1;
+      const k = std.smoothstep(m - 0.08, m + 0.08, P.artMix * 1.2 - 0.1) * std.select(d.f32(0), d.f32(1), inside);
+      col = std.mix(col, art, k);
+    }
     return d.vec4f(col, 1);
   });
 
@@ -561,7 +583,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     const rayRT = rayTex.createView('render');
     const paint = root.createTexture({ size: [w, h], format: HDR }).$usage('render', 'sampled');
     const paintRT = paint.createView('render');
-    const paintInBG = root.createBindGroup(paintLayout, { scene: sceneView, rays: rayTex.createView(d.texture2d(d.f32)) });
+    const paintInBG = root.createBindGroup(paintLayout, { scene: sceneView, rays: rayTex.createView(d.texture2d(d.f32)), artLo: opts.tex.thumbsView, artHi: opts.tex.hiView });
     const paintBG = root.createBindGroup(compLayout, { scene: paint.createView(d.texture2d(d.f32)), bloom: blooms[0].view });
     return {
       w, h, msaa, depth, scene, reflTex, reflDepth, reflLevels, reflBG, blooms, sceneSrcBG, compBG,
@@ -623,7 +645,8 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       writeFrame(frameRefl, vs, t, tmp as Float32Array, -vs.pos[1]);
     }
     groups.write(vs.groups);
-    post.write({ exposure: vs.exposure, bloom: vs.inForest ? 0.08 : 0.055, time: vs.time % 1000, vignette: vs.inForest ? 0.3 : 0.42, sharpen: Math.min(renderScale, budgetScale) < 0.99 && !vs.inForest ? 0.35 : 0, rays: vs.sun ? vs.sun[2] : 0, sun: d.vec2f(vs.sun ? vs.sun[0] : 0.5, vs.sun ? vs.sun[1] : 0.5) });
+    post.write({ exposure: vs.exposure, bloom: vs.inForest ? 0.08 : 0.055, time: vs.time % 1000, vignette: vs.inForest ? 0.3 : 0.42, sharpen: Math.min(renderScale, budgetScale) < 0.99 && !vs.inForest ? 0.35 : 0, rays: vs.sun ? vs.sun[2] : 0, sun: d.vec2f(vs.sun ? vs.sun[0] : 0.5, vs.sun ? vs.sun[1] : 0.5),
+      artMix: vs.art?.mix ?? 0, artSlot: vs.art?.slot ?? -1, artLayer: vs.art?.layer ?? 0, artAspect: vs.art?.aspect ?? 1 });
 
     const clear = [vs.fog.color[0], vs.fog.color[1], vs.fog.color[2], 1] as const;
     // the whole frame is one command encoder → one submit

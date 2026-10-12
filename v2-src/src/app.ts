@@ -451,6 +451,9 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
       pos: S.pos, yaw: S.yaw, pitch: S.pitch, time: S.time, groups,
       fog: fogM, ambient: S.inForest && forest ? forest.ambient : [0.3, 0.29, 0.27],
       exposure: S.inForest ? 0.92 : 0.82, inForest: S.inForest, sun: S.inForest && forest ? forest.sun : undefined,
+      art: S.inForest && forest && forest.artMix > 0 ? {
+        mix: forest.artMix, slot: (pool.fade.get(52) ?? 0) >= 1 ? pool.slotOf(52) : -1, layer: tex.layerOf.get(52) ?? 0, aspect: 89 / 116,
+      } : undefined,
     });
 
     /* dynamic resolution: hold the display's refresh rate (60/120 Hz…) by stepping the internal
