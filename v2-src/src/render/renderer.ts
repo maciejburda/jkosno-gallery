@@ -11,10 +11,11 @@ import { mat4 } from 'wgpu-matrix';
 import { Frame, Light, RoomInfo, PaintingInst, archLayout, frameLayout } from './schemas.ts';
 import { srgbToLinear, linearToSrgb, tonemapNeutral, ggxSpec, fresnel, sdBox, luminance } from './gpuMath.ts';
 import { bakeFloors } from './floorBake.ts';
+import { furnitureTex, bumpNormal, FurnTex } from './furniture.ts';
 import type { World } from '../world/build.ts';
 import { Part, buildFrameMesh, CANVAS_Z } from '../world/frameMesh.ts';
 import { FRAMES, FRAME_MAXP, FM, FO } from '../world/themes.ts';
-import { Mat } from '../world/mesh.ts';
+import { Mat, TX } from '../world/mesh.ts';
 import { WALL_H, ROOM_W, DOOR_W, DOOR_H } from '../world/layout.ts';
 import { floorRecipes, hexLinear } from '../world/styles.ts';
 import type { PaintingTextures } from '../textures/paintings.ts';
@@ -254,8 +255,18 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     const fdy = std.dpdy(fuv);
     const adx = std.dpdx(i.uv);
     const ady = std.dpdy(i.uv);
+    const pdx = std.dpdx(P);
+    const pdy = std.dpdy(P);
 
     let albedo = srgbToLinear(i.col.xyz);
+    let sheen = d.f32(0.7);
+    // furniture surfaces (benches): evaluated once here, used by the material branches below
+    const furn = layer > 0 && mat !== Mat.Floor && mat !== Mat.Label;
+    let ft = FurnTex({ mul: 1, rough: i.col.w, grad: d.vec2f(0), sheen: 0.7, wear: 0 });
+    if (furn) {
+      ft = furnitureTex(layer, i.uv, i.col.w);
+      N = bumpNormal(N, pdx, pdy, adx, ady, ft.grad);
+    }
     let rough = i.col.w;
     let specW = d.f32(0.5);
     let metal = d.f32(0);
@@ -293,7 +304,13 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
         reflK = std.clamp((0.07 + 0.93 * fresnel(0, ndv)) * R.polish * dt.w * (1 - rough * 0.65) * 1.6, 0, 0.92);
       }
     } else if (mat === Mat.Wood) {
-      albedo = albedo * (0.92 + perlin2d.sample(d.vec2f((P.x + P.z) * 2.5, P.y * 60)) * 0.08);
+      if (furn) {
+        // furniture: real grain, rings, pores (render/furniture.ts)
+        albedo = albedo * ft.mul;
+        rough = ft.rough;
+      } else {
+        albedo = albedo * (0.92 + perlin2d.sample(d.vec2f((P.x + P.z) * 2.5, P.y * 60)) * 0.08);
+      }
       specW = 0.7;
     } else if (mat === Mat.Emissive) {
       emissive = albedo * (PANEL_EMIT * i.col.w);
@@ -308,7 +325,13 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
         if (alpha < 0.5) { std.discard(); }
       }
     } else if (mat === Mat.Fabric) {
-      albedo = albedo * (0.9 + perlin2d.sample(P.xz * 400) * 0.1);
+      if (furn) {
+        // velvet pile, sheepskin curls, felt
+        albedo = albedo * ft.mul;
+        sheen = ft.sheen;
+      } else {
+        albedo = albedo * (0.9 + perlin2d.sample(P.xz * 400) * 0.1);
+      }
       rough = 0.95;
       specW = 0.15;
     } else if (mat === Mat.Key) {
@@ -319,6 +342,13 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       metal = 1;
       rough = i.col.w;
       ao = 1;
+      if (furn) {
+        // cast iron pits, worn gilding (the red bole / rust shows where `wear` is high)
+        albedo = std.mix(albedo * ft.mul, d.vec3f(0.3, 0.08, 0.04), ft.wear * 0.7);
+        // matte water gilding keeps some diffuse response, so it still reads as gold in the shade
+        metal = std.min(1 - ft.wear * 0.8, std.select(d.f32(1), d.f32(0.65), layer === TX.Gilt));
+        rough = ft.rough;
+      }
     } else if (mat === Mat.Glass) {
       // lit glass: glows from inside, a little brighter where it faces you, keeps a crisp reflection
       const ndv = std.max(std.dot(N, V), 0);
@@ -347,9 +377,23 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       albedo = albedo * (0.8 + 0.2 * (1 - pit)) * (0.95 + perlin2d.sample(P.xz * 60 + P.y * 40) * 0.06);
       rough = 0.42;
       specW = 0.9;
+      if (furn) {
+        // pebbled grain and patina
+        albedo = albedo * ft.mul;
+        rough = ft.rough - 0.08;
+      }
     } else if (mat === Mat.Enamel) {
       rough = 0.22;
       specW = 1.2;
+      if (furn) {
+        // painted wood: grain relief and brush marks under the gloss
+        albedo = albedo * ft.mul;
+        rough = 0.3;
+      }
+    } else if (mat === Mat.Matte && furn) {
+      // rope and other fibres
+      albedo = albedo * ft.mul;
+      rough = ft.rough;
     }
 
     const LS = lightAt(P, N, V, room, rough);
@@ -357,7 +401,7 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
     let diffuse = albedo * (LS.diff + hemi * ao * LS.occl) * (1 - metal);
     if (mat === Mat.Fabric) {
       // velvet: a soft sheen along the silhouette
-      diffuse = diffuse + albedo * (LS.diff + hemi * ao) * std.pow(1 - std.max(std.dot(N, V), 0), 3) * 0.7;
+      diffuse = diffuse + albedo * (LS.diff + hemi * ao) * std.pow(1 - std.max(std.dot(N, V), 0), 3) * sheen;
     }
     const f0c = std.mix(d.vec3f(0.04), albedo, metal);
     const specular = f0c * LS.spec * specW + albedo * metal * hemi * ao * 0.35;

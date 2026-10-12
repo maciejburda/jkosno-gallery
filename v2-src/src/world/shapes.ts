@@ -24,7 +24,10 @@ export function tri(mb: MeshBuilder, p: [V3, V3, V3], n: [V3, V3, V3], a: Vertex
   const o = out ?? normalize(add(add(n[0], n[1]), n[2]));
   const g = cross(sub(p[1], p[0]), sub(p[2], p[0]));
   const order = dot(g, o) >= 0 ? [0, 1, 2] : [0, 2, 1];
-  for (const k of order) mb.vertex(p[k], n[k], 0, 0, a);
+  for (const k of order) {
+    const [u, v] = a.uv ? a.uv(p[k]) : [0, 0];
+    mb.vertex(p[k], n[k], u, v, a);
+  }
 }
 function quad4(mb: MeshBuilder, p: [V3, V3, V3, V3], n: [V3, V3, V3, V3], a: VertexAttrs) {
   tri(mb, [p[0], p[1], p[2]], [n[0], n[1], n[2]], a);

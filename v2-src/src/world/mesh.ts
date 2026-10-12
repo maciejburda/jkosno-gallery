@@ -18,12 +18,18 @@ export const Mat = {
   Enamel: 12,   // glossy painted metal / lacquer
 } as const;
 
+/* furniture surfaces (vertex `layer` on Wood / Fabric / Leather / Matte / Enamel / Metal; render/furniture.ts) */
+export const TX = {
+  None: 0, Grain: 1, Velvet: 2, Fleece: 3, Rope: 4, Leather: 5, Felt: 6, Painted: 7, CastIron: 8, Bark: 9, EndGrain: 10, Gilt: 11,
+} as const;
+
 export const STRIDE = 40;
 export type V3 = readonly [number, number, number];
 
 export interface VertexAttrs {
   col: readonly [number, number, number, number]; // 0..1, sRGB rgb + param
   mat: number; room: number; group?: number; layer?: number;
+  uv?: (p: V3) => [number, number];               // texture coordinates (metres) for the shapes helpers
 }
 
 export class MeshBuilder {
