@@ -8,6 +8,8 @@ import {
   normalOf, rightOf, roomAt, SECRET_ROOM,
 } from './world/layout.ts';
 import { buildWorld } from './world/build.ts';
+import { themeOfRoom } from './world/styles.ts';
+import { FrameStyle } from './world/themes.ts';
 import { createRenderer, type InstanceRec, type Tier } from './render/renderer.ts';
 import { createPaintingTextures, HiResPool, type PaintingInstanceRef } from './textures/paintings.ts';
 import { S, isTouch } from './game/state.ts';
@@ -71,13 +73,12 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
     const N = normalOf(p), R = rightOf(p);
     const panels = p.item.imgs.length;
     const panelW = panels > 1 ? (p.w - 0.06) / 2 : p.w;
-    const tierA = p.item.tier === 'A+' || p.item.tier === 'A';
-    const frameHex = tierA ? [0x4a, 0x3a, 0x28] : [0x2c, 0x20, 0x16];
+    const style = themeOfRoom(p.room).frame;
     p.item.imgs.forEach((img, k) => {
       const off = panels > 1 ? (k === 0 ? -(panelW / 2 + 0.03) : (panelW / 2 + 0.03)) : 0;
       instances.push({
         center: [p.cx + R[0] * off, p.cy, p.cz + R[2] * off], right: [R[0], R[1], R[2]], normal: [N[0], N[1], N[2]],
-        hw: panelW / 2, hh: p.h / 2, room: p.room, frameCol: frameHex.map(c => c / 255) as [number, number, number],
+        hw: panelW / 2, hh: p.h / 2, room: p.room, style,
         img, layer: tex.layerOf.get(img) ?? 0,
       });
       instImg.push(img);
@@ -90,7 +91,7 @@ export async function startApp(root: TgpuRoot, lang: Lang) {
     const it52 = findItem(52);
     if (it52) {
       instances.push({ center: [PORTAL[0], PORTAL[1], PORTAL[2]], right: [-1, 0, 0], normal: [0, 0, -1], hw: 0.6, hh: 0.79,
-        room: world.forestRoom, frameCol: [0x4a / 255, 0x3a / 255, 0x28 / 255], img: 52, layer: tex.layerOf.get(52) ?? 0 });
+        room: world.forestRoom, style: FrameStyle.Twig, img: 52, layer: tex.layerOf.get(52) ?? 0 });
       instImg.push(52);
       refs.push({ img: 52, x: PORTAL[0], z: PORTAL[2] });
     }

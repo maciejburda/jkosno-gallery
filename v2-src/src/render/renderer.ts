@@ -12,10 +12,11 @@ import { Frame, Light, RoomInfo, PaintingInst, archLayout, frameLayout } from '.
 import { srgbToLinear, linearToSrgb, tonemapNeutral, ggxSpec, fresnel, sdBox, luminance } from './gpuMath.ts';
 import { bakeFloors } from './floorBake.ts';
 import type { World } from '../world/build.ts';
-import { Part, buildFrameMesh } from '../world/frameMesh.ts';
+import { Part, buildFrameMesh, CANVAS_Z } from '../world/frameMesh.ts';
+import { FRAMES, FRAME_MAXP, FM, FO } from '../world/themes.ts';
 import { Mat } from '../world/mesh.ts';
 import { WALL_H, ROOM_W, DOOR_W, DOOR_H } from '../world/layout.ts';
-import { floorRecipes } from '../world/styles.ts';
+import { floorRecipes, hexLinear } from '../world/styles.ts';
 import type { PaintingTextures } from '../textures/paintings.ts';
 import { PAGE } from '../textures/labels.ts';
 
@@ -23,7 +24,7 @@ export type Tier = 'high' | 'low';
 
 export interface InstanceRec {
   center: [number, number, number]; right: [number, number, number]; normal: [number, number, number];
-  hw: number; hh: number; room: number; frameCol: [number, number, number]; img: number; layer: number;
+  hw: number; hh: number; room: number; style: number; img: number; layer: number;
 }
 
 export interface ViewState {
@@ -45,7 +46,6 @@ const HDR = 'rgba16float' as const;
 const DEPTH = 'depth32float' as const;
 const PIC_LIGHT = d.vec3f(1.0, 0.93, 0.83);       // warm track lights
 const PLACEHOLDER = d.vec3f(0.6, 0.56, 0.46);      // canvas tone before the photo arrives (#cfc6b5)
-const GOLD = d.vec3f(0.95, 0.72, 0.36);
 const PANEL_EMIT = 4.5;
 
 export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world: World, opts: {
@@ -84,8 +84,13 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
   const NI = Math.max(1, opts.instances.length);
   const insts = root.createReadonly(d.arrayOf(PaintingInst, NI), opts.instances.map(i => ({
     center: d.vec3f(...i.center), hw: i.hw, right: d.vec3f(...i.right), hh: i.hh,
-    normal: d.vec3f(...i.normal), room: i.room, frameCol: d.vec3f(...i.frameCol), lowLayer: i.layer,
+    normal: d.vec3f(...i.normal), room: i.room, style: i.style, outer: FRAMES[i.style].outer, depth: FRAMES[i.style].depth, lowLayer: i.layer,
   })));
+  /* frame styles: the profile points (offset, depth, material, ornament) and the two colours of each */
+  const NF = FRAMES.length;
+  const frameProfiles = root.createUniform(d.arrayOf(d.vec4f, NF * FRAME_MAXP), FRAMES.flatMap(f =>
+    Array.from({ length: FRAME_MAXP }, (_, k) => { const p = f.pts[Math.min(k, f.pts.length - 1)]; return d.vec4f(p[0], p[1], p[2], p[3]); })));
+  const frameCols = root.createUniform(d.arrayOf(d.vec4f, NF * 2), FRAMES.flatMap(f => [d.vec4f(...hexLinear(f.a), 1), d.vec4f(...hexLinear(f.b), 1)]));
   /* per instance: (hi slot, hi mix, thumb ready, unused) — rewritten when streaming changes */
   const dynData = new Float32Array(NI * 4);
   const dyn = root.createUniform(d.arrayOf(d.vec4f, NI));
@@ -314,23 +319,48 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
 
   /* ---------------- paintings (one instanced draw) ---------------- */
   const paintVert = tgpu.vertexFn({
-    in: { corner: d.vec2f, side: d.vec2f, prof: d.vec2f, pnrm: d.vec2f, part: d.u32, iid: d.builtin.instanceIndex },
-    out: { position: d.builtin.position, wpos: d.vec3f, wnrm: d.vec3f, uv: d.vec2f, part: d.interpolate('flat', d.u32), iid: d.interpolate('flat', d.u32) },
+    in: { corner: d.vec2f, side: d.vec2f, seg: d.vec2u, part: d.u32, iid: d.builtin.instanceIndex },
+    out: {
+      position: d.builtin.position, wpos: d.vec3f, wnrm: d.vec3f, uv: d.vec2f, part: d.interpolate('flat', d.u32), iid: d.interpolate('flat', d.u32),
+      side: d.vec2f, orn: d.vec2f, mo: d.interpolate('flat', d.vec2u),
+    },
   })((i) => {
     'use gpu';
     const inst = insts.$[i.iid];
     const up = d.vec3f(0, 1, 0);
-    const lx = i.corner.x * (inst.hw + i.prof.x);
-    const ly = i.corner.y * (inst.hh + i.prof.x);
-    const wp = inst.center + inst.right * lx + up * ly + inst.normal * i.prof.y;
+    // the profile point this vertex stands for, in the instance's frame style
+    let prof = d.vec2f(0, CANVAS_Z);
+    let pn = d.vec2f(0, 1);
+    let mo = d.vec2u(0, 0);
+    if (i.part === Part.Frame) {
+      const k = inst.style * FRAME_MAXP + i.seg.x;
+      const pa = frameProfiles.$[k];
+      const pb = frameProfiles.$[k + 1];
+      prof = std.select(pa.xy, pb.xy, i.seg.y === 1);
+      const dv = pb.xy - pa.xy;
+      pn = d.vec2f(-dv.y, dv.x) / std.max(std.length(dv), 0.000001);
+      mo = d.vec2u(d.u32(pa.z), d.u32(pa.w));
+    }
+    const lx = i.corner.x * (inst.hw + prof.x);
+    const ly = i.corner.y * (inst.hh + prof.x);
+    const wp = inst.center + inst.right * lx + up * ly + inst.normal * prof.y;
     const sideW = inst.right * i.side.x + up * i.side.y;
-    const wn = sideW * i.pnrm.x + inst.normal * i.pnrm.y;
+    const wn = sideW * pn.x + inst.normal * pn.y;
+    // position along the moulding (for carving), measured from the frame's centre line
+    const tangent = inst.right * -i.side.y + up * i.side.x;
+    const along = std.dot(wp - inst.center, tangent);
     const uv = d.vec2f(i.corner.x * 0.5 + 0.5, 0.5 - i.corner.y * 0.5);
-    return { position: frameAcc.$.viewProj * d.vec4f(wp, 1), wpos: wp, wnrm: wn, uv, part: i.part, iid: i.iid };
+    return {
+      position: frameAcc.$.viewProj * d.vec4f(wp, 1), wpos: wp, wnrm: wn, uv, part: i.part, iid: i.iid,
+      side: i.side, orn: d.vec2f(along, prof.x), mo,
+    };
   });
 
   const paintFrag = tgpu.fragmentFn({
-    in: { position: d.builtin.position, wpos: d.vec3f, wnrm: d.vec3f, uv: d.vec2f, part: d.interpolate('flat', d.u32), iid: d.interpolate('flat', d.u32) },
+    in: {
+      position: d.builtin.position, wpos: d.vec3f, wnrm: d.vec3f, uv: d.vec2f, part: d.interpolate('flat', d.u32), iid: d.interpolate('flat', d.u32),
+      side: d.vec2f, orn: d.vec2f, mo: d.interpolate('flat', d.vec2u),
+    },
     out: d.vec4f,
   })((i) => {
     'use gpu';
@@ -370,14 +400,86 @@ export function createRenderer(root: TgpuRoot, canvas: HTMLCanvasElement, world:
       // the moulding's top lip shades a band along the top edge of the canvas
       const dTop = (i.uv.y) * inst.hh * 2;
       lip = std.mix(0.45, 1, std.smoothstep(0.012, 0.04, dTop));
-    } else if (i.part === Part.Wood) {
-      albedo = srgbToLinear(inst.frameCol) * (0.9 + perlin2d.sample(d.vec2f(std.dot(P, inst.right) * 3, P.y * 3) * 9) * 0.1);
-      rough = 0.42;
-      specW = 0.9;
     } else {
-      albedo = d.vec3f(GOLD);
-      metal = 1;
-      rough = 0.3;
+      const A = frameCols.$[inst.style * 2].xyz;
+      const B = frameCols.$[inst.style * 2 + 1].xyz;
+      const mat = i.mo.x;
+      const orn = i.mo.y;
+      const up = d.vec3f(0, 1, 0);
+      const sideW = inst.right * i.side.x + up * i.side.y;
+      const tangent = inst.right * -i.side.y + up * i.side.x;
+      const a = i.orn.x;
+      const o = i.orn.y;
+      // carving: tilt the normal along (ta) / across (tc) the moulding; cav = depth of the hollows
+      let ta = d.f32(0);
+      let tc = d.f32(0);
+      let cav = d.f32(0);
+      if (orn === FO.Acanthus) {
+        const ph = (a / 0.034 + std.sin(o * 160) * 0.35) * 6.2832;
+        ta = std.cos(ph) * 0.5;
+        tc = std.cos(o * 320) * 0.25;
+        cav = std.smoothstep(0.2, -0.8, std.sin(ph)) * 0.8;
+      } else if (orn === FO.Bead) {
+        const f = std.fract(a / 0.011) - 0.5;
+        ta = f * 1.6;
+        cav = std.smoothstep(0.36, 0.5, std.abs(f));
+      } else if (orn === FO.Rope) {
+        const f = std.fract((a + o) / 0.016) - 0.5;
+        ta = f * 1.1;
+        tc = f * 1.1;
+        cav = std.smoothstep(0.36, 0.5, std.abs(f));
+      } else if (orn === FO.Chip) {
+        const g = std.fract(a / 0.036);
+        const r = std.fract(o / 0.02);
+        const inside = r < std.abs(g - 0.5) * 2;
+        ta = std.select(d.f32(-0.6), d.f32(0.6), inside) * (g - 0.5);
+        tc = (r - 0.5) * 0.9;
+        cav = std.select(d.f32(0), d.f32(0.55), inside);
+      } else if (orn === FO.Reed) {
+        const ph = o / 0.004 * 6.2832;
+        tc = std.sin(ph) * 0.35;
+        cav = std.smoothstep(0.5, 1, std.cos(ph)) * 0.35;
+      } else if (orn === FO.Twig) {
+        const n1 = perlin2d.sample(d.vec2f(a * 40, o * 70));
+        const n2 = perlin2d.sample(d.vec2f(a * 40 + 7.1, o * 70 + 3.3));
+        ta = n1 * 0.8;
+        tc = n2 * 0.8;
+        cav = std.smoothstep(0.1, 0.5, -n1) * 0.7;
+      }
+      N = std.normalize(N + tangent * ta + sideW * tc);
+      const grain = perlin2d.sample(d.vec2f(a * 6, o * 260)) * 0.5 + perlin2d.sample(d.vec2f(a * 40, o * 900)) * 0.25;
+      if (mat === FM.Gold) {
+        // worn gilding: the red bole shows in the hollows
+        albedo = std.mix(B, A * 0.9, cav * 0.55);
+        metal = 1 - cav * 0.5;
+        rough = 0.26 + cav * 0.3;
+      } else if (mat === FM.Silver) {
+        albedo = d.vec3f(0.72, 0.72, 0.74) * (1 - cav * 0.4);
+        metal = 1;
+        rough = 0.24;
+      } else if (mat === FM.Lacquer) {
+        albedo = A * (1 - cav * 0.3);
+        rough = 0.16;
+        specW = 1.4;
+      } else if (mat === FM.Paint) {
+        albedo = A * (0.92 + grain * 0.06) * (1 - cav * 0.35);
+        rough = 0.72;
+        specW = 0.4;
+      } else if (mat === FM.Mat) {
+        albedo = d.vec3f(0.86, 0.84, 0.79);
+        rough = 0.92;
+        specW = 0.2;
+      } else if (mat === FM.Bole) {
+        albedo = d.vec3f(A);
+        rough = 0.6;
+      } else if (mat === FM.Accent) {
+        albedo = B * (0.95 + grain * 0.05);
+        rough = 0.62;
+        specW = 0.4;
+      } else {
+        albedo = A * (0.86 + grain * 0.22) * (1 - cav * 0.4);
+        rough = 0.46;
+      }
     }
 
     const LS = lightAt(P, N, V, inst.room, rough);

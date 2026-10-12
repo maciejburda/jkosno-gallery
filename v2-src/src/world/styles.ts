@@ -1,6 +1,7 @@
 /* Per-room look (same palette as v1 STYLES / landing ROOM_META): wall colour, accent,
    floor recipe. Floors are baked on the GPU from these recipes (render/floorBake.ts). */
 import { rooms } from './layout.ts';
+import { THEMES, type Theme } from './themes.ts';
 
 export const FloorKind = { Marble: 0, Chevron: 1, Planks: 2, Stone: 3, Terrazzo: 4, Basket: 5 } as const;
 export type FloorKind = typeof FloorKind[keyof typeof FloorKind];
@@ -36,6 +37,11 @@ export const SECRET_WALL = STYLES['__secret'].wall;
 export const styleOfRoom = (i: number): RoomStyle => {
   const r = rooms[i];
   return r.lobby ? STYLES['__lobby'] : STYLES[r.name];
+};
+
+export const themeOfRoom = (i: number): Theme => {
+  const r = rooms[i];
+  return THEMES[r.lobby ? '__lobby' : r.name];
 };
 
 /* every room gets its own baked floor layer */

@@ -33,12 +33,12 @@ export const RoomInfo = d.struct({
 export const MAX_ROOMS = 12;
 export const MAX_GROUPS = 4;
 
-/* the painting instances: one per panel (diptychs = two) */
+/* the painting instances: one per panel (diptychs = two); style = the frame style (themes.ts) */
 export const PaintingInst = d.struct({
   center: d.vec3f, hw: d.f32,
   right: d.vec3f, hh: d.f32,
   normal: d.vec3f, room: d.u32,
-  frameCol: d.vec3f, lowLayer: d.u32,
+  style: d.u32, outer: d.f32, depth: d.f32, lowLayer: d.u32,
 });
 
 /* merged static mesh */
@@ -47,8 +47,8 @@ export const ArchVertex = d.unstruct({
 });
 export const archLayout = tgpu.vertexLayout(d.disarrayOf(ArchVertex));
 
-/* the framed-canvas template mesh, expanded per instance in the vertex shader */
+/* the framed-canvas template mesh, expanded per instance (and frame style) in the vertex shader */
 export const FrameVertex = d.unstruct({
-  corner: d.float32x2, side: d.float32x2, prof: d.float32x2, pnrm: d.float32x2, part: d.uint32,
+  corner: d.float32x2, side: d.float32x2, seg: d.uint32x2, part: d.uint32,
 });
 export const frameLayout = tgpu.vertexLayout(d.disarrayOf(FrameVertex));

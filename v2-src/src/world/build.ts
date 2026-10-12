@@ -7,15 +7,13 @@ import {
   panelXs, benches, ROMAN, roomsData, publicCount, normalOf, rightOf, roomAt, PORTRAIT,
   type Placement,
 } from './layout.ts';
-import { styleOfRoom, FEATURE_WALL, SECRET_WALL, hexLinear, type RoomStyle } from './styles.ts';
+import { styleOfRoom, themeOfRoom, FEATURE_WALL, SECRET_WALL, hexLinear, type RoomStyle } from './styles.ts';
+import { FRAMES } from './themes.ts';
 import { MeshBuilder, Mat, hexCol, type V3, type VertexAttrs, add, scale } from './mesh.ts';
 import { LabelAtlas, drawText, drawBio, drawRug, type AtlasRect } from '../textures/labels.ts';
 import { type Lang, type T, tGroup } from '../shared/data.ts';
 import { FC, PORTAL } from '../forest/layout.ts';
 
-export const FRAME_W = 0.06;     // moulding width around the canvas
-export const FRAME_D = 0.062;    // moulding depth off the wall
-export const CANVAS_Z = 0.03;    // canvas sits recessed inside the frame
 
 export interface LightRec {
   pos: V3; intensity: number; dir: V3; cosIn: number; center: V3; cosOut: number;
@@ -160,7 +158,7 @@ export function buildWorld(lang: Lang, T: T): World {
   });
   for (const [p, rect] of plaqueRects) {
     const N = normalOf(p), R = rightOf(p);
-    const c = add(add([p.cx, p.cy - p.h / 2 + 0.09, p.cz], scale(R, p.w / 2 + 0.19)), scale(N, 0.014));
+    const c = add(add([p.cx, p.cy - p.h / 2 + 0.09, p.cz], scale(R, p.w / 2 + FRAMES[themeOfRoom(p.room).frame].outer + 0.13)), scale(N, 0.014));
     plane(mb, c, R, up, 0.17, 0.115, label(rect, p.room), rect);
     // thin card edges
     const e = { col: hexCol('#e8e0cf', 0.9), mat: Mat.Matte, room: p.room };
@@ -216,7 +214,8 @@ export function buildWorld(lang: Lang, T: T): World {
   };
   for (const p of placements) {
     const N = normalOf(p) as V3, R = rightOf(p) as V3;
-    addLight([p.cx, p.cy, p.cz], N, R, p.w / 2 + FRAME_W, p.h / 2 + FRAME_W, FRAME_D, p.room);
+    const fr = FRAMES[themeOfRoom(p.room).frame];
+    addLight([p.cx, p.cy, p.cz], N, R, p.w / 2 + fr.outer, p.h / 2 + fr.outer, fr.depth, p.room);
   }
   addLight([5.9, 1.68, -ROOM_W / 2], [0, 0, 1], [1, 0, 0], 1.0, 0.98, 0.03, 0, 0.8);
   lights.sort((a, b) => a.room - b.room);
